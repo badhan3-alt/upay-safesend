@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'risk_api',
     'transactions',
+    'dashboard',
 ]
 
 MIDDLEWARE = [

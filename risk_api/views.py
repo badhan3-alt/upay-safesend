@@ -3,7 +3,7 @@ from pathlib import Path
 import joblib
 import pandas as pd
 import shap
-
+from rest_framework.permissions import AllowAny
 from django.conf import settings
 from rest_framework import generics, status
 from rest_framework.response import Response
@@ -76,6 +76,9 @@ FEATURE_NAMES = {
 # ============================================================
 
 class RiskPredictionView(generics.GenericAPIView):
+    serializer_class = RiskPredictionSerializer
+    authentication_classes = []
+    permission_classes = [AllowAny]
 
     serializer_class = RiskPredictionSerializer
 
