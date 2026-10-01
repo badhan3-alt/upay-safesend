@@ -1,434 +1,499 @@
+from datetime import timedelta
 from pathlib import Path
+import uuid
 
+from django.conf import settings
+from django.db.models import Avg, Sum
+from django.utils import timezone
 import joblib
 import pandas as pd
-import shap
-from rest_framework.permissions import AllowAny
-from django.conf import settings
 from rest_framework import generics, status
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework.views import APIView
+import shap
 
-from .serializers import RiskPredictionSerializer
-
-
-# ============================================================
-# MODEL PATHS
-# ============================================================
-
-MODEL_PATH = (
-    Path(settings.BASE_DIR)
-    / "model"
-    / "saved_models"
-    / "fraud_xgboost.pkl"
+from transactions.models import Transaction
+from .serializers import (
+    ConfirmTransactionSerializer,
+    RiskPredictionSerializer,
+    SendMoneySerializer,
 )
 
-FEATURE_PATH = (
-    Path(settings.BASE_DIR)
-    / "model"
-    / "saved_models"
-    / "features.pkl"
-)
-
-ANOMALY_MODEL_PATH = (
-    Path(settings.BASE_DIR)
-    / "model"
-    / "saved_models"
-    / "isolation_forest.pkl"
-)
-
-
 # ============================================================
-# LOAD MODELS
+# MODEL PATHS & PERSISTED ARTIFACTS
 # ============================================================
 
-model = joblib.load(MODEL_PATH)
+MODEL_DIR = Path(settings.BASE_DIR) / "model" / "saved_models"
+MODEL_PATH = MODEL_DIR / "fraud_xgboost.pkl"
+FEATURE_PATH = MODEL_DIR / "features.pkl"
+ANOMALY_MODEL_PATH = MODEL_DIR / "isolation_forest.pkl"
 
-features = joblib.load(FEATURE_PATH)
+# Load models and explainer safely
+try:
+    xgb_model = joblib.load(MODEL_PATH)
+    features_list = joblib.load(FEATURE_PATH)
+    anomaly_model = joblib.load(ANOMALY_MODEL_PATH)
+    shap_explainer = shap.TreeExplainer(xgb_model)
+except Exception as e:
+    print(f"Warning: Error loading ML models: {e}")
+    xgb_model = None
+    features_list = [
+        "amount",
+        "recipient_new",
+        "hour",
+        "device_changed",
+        "location_changed",
+        "transactions_last_1h",
+        "average_transaction_amount",
+        "amount_ratio",
+        "account_age_days",
+    ]
+    anomaly_model = None
+    shap_explainer = None
 
-anomaly_model = joblib.load(
-    ANOMALY_MODEL_PATH
-)
 
+# Friendly labels for frontend / report
+FEATURE_NAMES_EN = {
+    "amount": "Transaction Amount",
+    "recipient_new": "New Recipient",
+    "hour": "Transaction Time of Day",
+    "device_changed": "Device Change",
+    "location_changed": "Location Change",
+    "transactions_last_1h": "Hourly Velocity / Frequency",
+    "average_transaction_amount": "User Average Amount",
+    "amount_ratio": "Spike vs Normal Spending",
+    "account_age_days": "Account Age",
+}
 
-# ============================================================
-# SHAP EXPLAINER
-# ============================================================
-
-explainer = shap.TreeExplainer(model)
-
-
-# Friendly names for frontend
-FEATURE_NAMES = {
-    "amount": "Transaction amount",
-    "recipient_new": "New recipient",
-    "hour": "Transaction time",
-    "device_changed": "Device change",
-    "location_changed": "Location change",
-    "transactions_last_1h": "Transaction frequency",
-    "average_transaction_amount": "Average transaction amount",
-    "amount_ratio": "Amount compared with normal",
-    "account_age_days": "Account age",
+FEATURE_NAMES_BN = {
+    "amount": "লেনদেনের পরিমাণ",
+    "recipient_new": "নতুন প্রাপক",
+    "hour": "লেনদেনের সময়",
+    "device_changed": "ডিভাইস পরিবর্তন",
+    "location_changed": "অবস্থান পরিবর্তন",
+    "transactions_last_1h": "গত এক ঘণ্টায় লেনদেনের সংখ্যা",
+    "average_transaction_amount": "গড় লেনদেনের পরিমাণ",
+    "amount_ratio": "স্বাভাবিকের চেয়ে তারতম্য",
+    "account_age_days": "অ্যাকাউন্টের বয়স",
 }
 
 
 # ============================================================
-# RISK PREDICTION API
+# CORE RISK ENGINE (Ensemble: XGBoost + Isolation Forest + SHAP)
+# ============================================================
+
+def evaluate_transaction_risk(feature_data: dict) -> dict:
+    """
+    Computes ensemble risk score, behavioral anomaly flag,
+    SHAP explainability, bilingual reasons, and recommendations.
+    """
+    amount = float(feature_data.get("amount", 0))
+    avg_amount = float(feature_data.get("average_transaction_amount", 2500))
+    if avg_amount <= 0:
+        avg_amount = 2500.0
+
+    amount_ratio = round(amount / avg_amount, 2)
+    recipient_new = int(bool(feature_data.get("recipient_new", False)))
+    device_changed = int(bool(feature_data.get("device_changed", False)))
+    location_changed = int(bool(feature_data.get("location_changed", False)))
+    hour = int(feature_data.get("hour", 14))
+    tx_last_1h = int(feature_data.get("transactions_last_1h", 1))
+    account_age = int(feature_data.get("account_age_days", 180))
+
+    transaction_df = pd.DataFrame(
+        [
+            {
+                "amount": amount,
+                "recipient_new": recipient_new,
+                "hour": hour,
+                "device_changed": device_changed,
+                "location_changed": location_changed,
+                "transactions_last_1h": tx_last_1h,
+                "average_transaction_amount": avg_amount,
+                "amount_ratio": amount_ratio,
+                "account_age_days": account_age,
+            }
+        ]
+    )
+
+    # Reorder features exactly as trained
+    transaction_df = transaction_df[features_list]
+
+    # 1. XGBoost Supervised Classification
+    if xgb_model is not None:
+        try:
+            fraud_prob = float(xgb_model.predict_proba(transaction_df)[0][1])
+            xgb_score = fraud_prob * 100.0
+        except Exception:
+            fraud_prob = 0.05
+            xgb_score = 5.0
+    else:
+        fraud_prob = 0.05
+        xgb_score = 5.0
+
+    # 2. Isolation Forest Unsupervised Anomaly Detection
+    is_anomaly = False
+    if anomaly_model is not None:
+        try:
+            anomaly_pred = anomaly_model.predict(transaction_df)[0]
+            # -1 = anomaly, 1 = normal
+            is_anomaly = bool(anomaly_pred == -1)
+        except Exception:
+            is_anomaly = False
+
+    anomaly_score = 100.0 if is_anomaly else 0.0
+
+    # 3. Blended Ensemble Risk Score (75% XGBoost + 25% Isolation Forest)
+    blended_score = (0.75 * xgb_score) + (0.25 * anomaly_score)
+    risk_score = round(max(0.0, min(100.0, blended_score)), 1)
+
+    # 4. Risk Level Calibration
+    if risk_score >= 70.0:
+        risk_level = "HIGH"
+    elif risk_score >= 30.0:
+        risk_level = "MEDIUM"
+    else:
+        risk_level = "LOW"
+
+    # 5. Rule-Based Explanations (Bilingual: English & Bangla)
+    reasons_en = []
+    reasons_bn = []
+
+    if recipient_new:
+        reasons_en.append("New recipient (first time sending to this account)")
+        reasons_bn.append("নতুন প্রাপক (পূর্বে কখনও এই নম্বরে লেনদেন হয়নি)")
+
+    if amount_ratio >= 3.0:
+        reasons_en.append(
+            f"Amount is {amount_ratio:.1f}× higher than normal user average (৳{avg_amount:,.0f})"
+        )
+        reasons_bn.append(
+            f"স্বাভাবিক গড়ের চেয়ে {amount_ratio:.1f} গুণ বেশি টাকা (স্বাভাবিক: ৳{avg_amount:,.0f})"
+        )
+    elif amount_ratio >= 1.8:
+        reasons_en.append("Amount is notably above average spending pattern")
+        reasons_bn.append("টাকার পরিমাণ স্বাভাবিকের চেয়ে কিছুটা বেশি")
+
+    if device_changed:
+        reasons_en.append("Transaction initiated from an unfamiliar or changed device")
+        reasons_bn.append("নতুন বা পরিবর্তিত ডিভাইস থেকে লেনদেন করা হচ্ছে")
+
+    if location_changed:
+        reasons_en.append("Transaction originating from an unusual location")
+        reasons_bn.append("স্বাভাবিক ভৌগোলিক এলাকার বাইরে থেকে লেনদেন করা হচ্ছে")
+
+    if tx_last_1h >= 4:
+        reasons_en.append(
+            f"High transaction frequency ({tx_last_1h} transactions in the last hour)"
+        )
+        reasons_bn.append(
+            f"অল্প সময়ে উচ্চমাত্রার লেনদেন (গত ১ ঘণ্টায় {tx_last_1h} বার)"
+        )
+
+    if hour <= 5 or hour >= 23:
+        reasons_en.append(f"Unusual late-night or dawn transaction hour ({hour:02d}:00)")
+        reasons_bn.append(f"অস্বাভাবিক সময়ে লেনদেন (রাত/ভোর {hour:02d}:০০)")
+
+    if is_anomaly:
+        reasons_en.append("Behavioral Anomaly Engine flagged deviation from normal spending profile")
+        reasons_bn.append("এআই অ্যানোমালি ইঞ্জিন স্বাভাবিক আচরণে অসঙ্গতি শনাক্ত করেছে")
+
+    if not reasons_en:
+        reasons_en.append("Transaction matches verified activity pattern; no risk anomalies")
+        reasons_bn.append("লেনদেনটি আপনার নিয়মিত ব্যবহারের সাথে পুরোপুরি সংগতিপূর্ণ")
+
+    # 6. SHAP Feature Attribution
+    ai_explanation = []
+    if shap_explainer is not None:
+        try:
+            shap_result = shap_explainer(transaction_df)
+            shap_vals = shap_result.values[0]
+            for feat, val in zip(features_list, shap_vals):
+                val_flt = float(val)
+                ai_explanation.append(
+                    {
+                        "feature_key": feat,
+                        "feature": FEATURE_NAMES_EN.get(feat, feat),
+                        "feature_bn": FEATURE_NAMES_BN.get(feat, feat),
+                        "contribution": round(val_flt, 4),
+                        "effect": "increases risk" if val_flt > 0 else "reduces risk",
+                        "effect_bn": "ঝুঁকি বাড়ায়" if val_flt > 0 else "ঝুঁকি কমায়",
+                    }
+                )
+            ai_explanation.sort(key=lambda x: abs(x["contribution"]), reverse=True)
+            ai_explanation = ai_explanation[:5]
+        except Exception as err:
+            print("SHAP calculation exception:", err)
+            ai_explanation = []
+
+    # 7. Actionable Recommendations (Good Project Test: What should Upay do next?)
+    if risk_level == "HIGH":
+        recommendation_en = (
+            "Verify the recipient via phone call before continuing. "
+            "SafeSend recommends not completing this payment if you received an urgent request."
+        )
+        recommendation_bn = (
+            "টাকা পাঠানোর আগে প্রাপককে সরাসরি ফোন করে নিশ্চিত হোন। "
+            "জরুরি অনুরোধ বা অচেনা কারো নির্দেশে টাকা পাঠাবেন না।"
+        )
+    elif risk_level == "MEDIUM":
+        recommendation_en = (
+            "Review transaction details carefully. Verify the account number and amount before confirmation."
+        )
+        recommendation_bn = (
+            "লেনদেনের তথ্য সতর্কতার সাথে যাচাই করুন। নম্বর ও টাকার পরিমাণ সঠিক কি না দেখে নিন।"
+        )
+    else:
+        recommendation_en = "Transaction appears safe. Ready to proceed with normal confirmation."
+        recommendation_bn = "লেনদেনটি সম্পূর্ণ স্বাভাবিক। আপনি নিরাপদে এগিয়ে যেতে পারেন।"
+
+    # 8. Investigation Narrative (What happened? Why is it risky? What should Upay do next?)
+    user_id = feature_data.get("user_id", "U0001")
+    recipient_id = feature_data.get("recipient_id", "R0000")
+    what_happened = (
+        f"User {user_id} attempted a transfer of ৳{amount:,.2f} to {recipient_id} at {hour:02d}:00."
+    )
+    if risk_level == "HIGH":
+        why_risky = (
+            f"Critical risk indicators detected: amount is {amount_ratio:.1f}× historical baseline, "
+            f"new recipient={bool(recipient_new)}, device changed={bool(device_changed)}, "
+            f"anomaly engine flag={is_anomaly}."
+        )
+        what_to_do = "Intervene before fund transfer. Display SafeSend warning modal and require user re-authentication."
+    elif risk_level == "MEDIUM":
+        why_risky = (
+            f"Moderate behavioral deviation detected: ratio {amount_ratio:.1f}×, "
+            f"new recipient={bool(recipient_new)}."
+        )
+        what_to_do = "Display soft safety warning. Allow user to proceed after acknowledging the recipient details."
+    else:
+        why_risky = "All behavioral parameters conform to historical baseline."
+        what_to_do = "Approve and process transaction seamlessly with zero friction."
+
+    return {
+        "risk_score": risk_score,
+        "risk_level": risk_level,
+        "xgboost_score": round(xgb_score, 2),
+        "fraud_probability": round(fraud_prob, 4),
+        "behavioral_anomaly": is_anomaly,
+        "reasons": reasons_en,
+        "reasons_bn": reasons_bn,
+        "recommendation": recommendation_en,
+        "recommendation_bn": recommendation_bn,
+        "ai_explanation": ai_explanation,
+        "features_analyzed": {
+            "amount": amount,
+            "recipient_new": bool(recipient_new),
+            "hour": hour,
+            "device_changed": bool(device_changed),
+            "location_changed": bool(location_changed),
+            "transactions_last_1h": tx_last_1h,
+            "average_transaction_amount": round(avg_amount, 2),
+            "amount_ratio": amount_ratio,
+            "account_age_days": account_age,
+        },
+        "investigation": {
+            "what_happened": what_happened,
+            "why_risky": why_risky,
+            "what_upay_should_do": what_to_do,
+        },
+    }
+
+
+# ============================================================
+# API VIEWS
 # ============================================================
 
 class RiskPredictionView(generics.GenericAPIView):
+    """
+    Direct feature risk prediction API for simulators, test suites, and third-party integrations.
+    """
     serializer_class = RiskPredictionSerializer
     authentication_classes = []
     permission_classes = [AllowAny]
 
-    serializer_class = RiskPredictionSerializer
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = evaluate_transaction_risk(serializer.validated_data)
+        return Response(result, status=status.HTTP_200_OK)
+
+
+class SendMoneyRiskView(generics.GenericAPIView):
+    """
+    Context-aware risk check API for the Upay mobile app.
+    Automatically calculates user baseline from past database transactions.
+    """
+    serializer_class = SendMoneySerializer
+    authentication_classes = []
+    permission_classes = [AllowAny]
 
     def post(self, request):
-
-        # ----------------------------------------------------
-        # Validate input
-        # ----------------------------------------------------
-
-        serializer = self.get_serializer(
-            data=request.data
-        )
-
-        serializer.is_valid(
-            raise_exception=True
-        )
-
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
+        user_id = data["user_id"]
+        recipient_id = data["recipient_id"]
+        amount = float(data["amount"])
 
-        # ----------------------------------------------------
-        # Calculate amount ratio
-        # ----------------------------------------------------
+        # Fetch past transactions for user to build real behavioral context
+        past_txns = Transaction.objects.filter(user_id=user_id)
+        has_history = past_txns.exists()
 
-        average_amount = data[
-            "average_transaction_amount"
-        ]
-
-        if average_amount > 0:
-
-            amount_ratio = (
-                data["amount"]
-                / average_amount
-            )
-
+        if has_history:
+            avg_amount = past_txns.aggregate(Avg("amount"))["amount__avg"] or 2500.0
+            avg_amount = float(avg_amount)
+            recipient_new = not past_txns.filter(recipient_id=recipient_id).exists()
+            one_hour_ago = timezone.now() - timedelta(hours=1)
+            tx_last_1h = past_txns.filter(created_at__gte=one_hour_ago).count()
+            earliest_txn = past_txns.order_by("created_at").first()
+            account_age_days = max(10, (timezone.now() - earliest_txn.created_at).days)
         else:
+            # Synthetic default profile for demo user
+            avg_amount = 2500.0
+            recipient_new = True
+            tx_last_1h = 0
+            account_age_days = 210
 
-            amount_ratio = 0
-
-
-        # ----------------------------------------------------
-        # Prepare transaction
-        # ----------------------------------------------------
-
-        transaction = pd.DataFrame(
-            [
-                {
-                    "amount": data["amount"],
-
-                    "recipient_new":
-                        int(data["recipient_new"]),
-
-                    "hour":
-                        data["hour"],
-
-                    "device_changed":
-                        int(data["device_changed"]),
-
-                    "location_changed":
-                        int(data["location_changed"]),
-
-                    "transactions_last_1h":
-                        data["transactions_last_1h"],
-
-                    "average_transaction_amount":
-                        average_amount,
-
-                    "amount_ratio":
-                        amount_ratio,
-
-                    "account_age_days":
-                        data["account_age_days"],
-                }
-            ]
-        )
-
-        # Keep feature order exactly
-        # the same as training
-
-        transaction = transaction[features]
-
-
-        # ====================================================
-        # 1. XGBOOST PREDICTION
-        # ====================================================
-
-        fraud_probability = (
-            model.predict_proba(
-                transaction
-            )[0][1]
-        )
-
-        xgb_score = (
-            float(fraud_probability)
-            * 100
-        )
-
-
-        # ====================================================
-        # 2. ISOLATION FOREST
-        # ====================================================
-
-        anomaly_prediction = (
-            anomaly_model.predict(
-                transaction
-            )[0]
-        )
-
-        # Isolation Forest:
-        # 1  = Normal
-        # -1 = Anomaly
-
-        is_anomaly = (
-            anomaly_prediction == -1
-        )
-
-        anomaly_score = (
-            100 if is_anomaly else 0
-        )
-
-
-        # ====================================================
-        # 3. COMBINED RISK SCORE
-        # ====================================================
-
-        risk_score = round(
-            (0.80 * xgb_score)
-            +
-            (0.20 * anomaly_score),
-            2
-        )
-
-
-        # ====================================================
-        # 4. RISK LEVEL
-        # ====================================================
-
-        if risk_score >= 70:
-
-            risk_level = "HIGH"
-
-        elif risk_score >= 30:
-
-            risk_level = "MEDIUM"
-
+        # Determine transaction hour
+        if data.get("hour") is not None:
+            hour = data["hour"]
         else:
+            # Use current local time hour
+            hour = timezone.localtime().hour
 
-            risk_level = "LOW"
+        device_changed = data.get("device_changed", False)
+        location_changed = data.get("location_changed", False)
 
+        feature_data = {
+            "user_id": user_id,
+            "recipient_id": recipient_id,
+            "amount": amount,
+            "recipient_new": recipient_new,
+            "hour": hour,
+            "device_changed": device_changed,
+            "location_changed": location_changed,
+            "transactions_last_1h": tx_last_1h,
+            "average_transaction_amount": avg_amount,
+            "account_age_days": account_age_days,
+        }
 
-        # ====================================================
-        # 5. RULE-BASED REASONS
-        # ====================================================
+        result = evaluate_transaction_risk(feature_data)
+        result["user_id"] = user_id
+        result["recipient_id"] = recipient_id
+        result["amount"] = amount
 
-        reasons = []
-
-        if data["recipient_new"]:
-
-            reasons.append(
-                "New recipient"
-            )
-
-        if amount_ratio >= 3:
-
-            reasons.append(
-                "Amount much higher than normal"
-            )
-
-        if data["device_changed"]:
-
-            reasons.append(
-                "Device recently changed"
-            )
-
-        if data["location_changed"]:
-
-            reasons.append(
-                "Location recently changed"
-            )
-
-        if (
-            data["transactions_last_1h"]
-            >= 4
-        ):
-
-            reasons.append(
-                "High transaction frequency"
-            )
-
-        if (
-            data["hour"] <= 5
-            or data["hour"] >= 23
-        ):
-
-            reasons.append(
-                "Transaction at unusual time"
-            )
-
-        if is_anomaly:
-
-            reasons.append(
-                "Transaction behavior is significantly "
-                "different from normal patterns"
-            )
-
-        if not reasons:
-
-            reasons.append(
-                "No unusual transaction signals detected"
-            )
+        return Response(result, status=status.HTTP_200_OK)
 
 
-        # ====================================================
-        # 6. SHAP EXPLAINABLE AI
-        # ====================================================
+class ConfirmTransactionView(generics.GenericAPIView):
+    """
+    Records and finalizes the transaction in the database once the user confirms or verifies it.
+    """
+    serializer_class = ConfirmTransactionSerializer
+    authentication_classes = []
+    permission_classes = [AllowAny]
 
-        try:
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
 
-            shap_result = explainer(
-                transaction
-            )
+        txn_id = f"UPAY-{uuid.uuid4().hex[:8].upper()}"
 
-            shap_values = (
-                shap_result.values[0]
-            )
+        past_txns = Transaction.objects.filter(user_id=data["user_id"])
+        avg_amount = past_txns.aggregate(Avg("amount"))["amount__avg"] or 2500.0
+        one_hour_ago = timezone.now() - timedelta(hours=1)
+        tx_last_1h = past_txns.filter(created_at__gte=one_hour_ago).count()
 
-            ai_explanation = []
+        is_suspicious = data["risk_score"] >= 70.0
 
-            for feature, value in zip(
-                features,
-                shap_values
-            ):
-
-                value = float(value)
-
-                ai_explanation.append(
-                    {
-                        "feature":
-                            FEATURE_NAMES.get(
-                                feature,
-                                feature
-                            ),
-
-                        "contribution":
-                            round(value, 4),
-
-                        "effect":
-                            (
-                                "increases risk"
-                                if value > 0
-                                else "reduces risk"
-                            ),
-                    }
-                )
-
-
-            # Strongest factors first
-
-            ai_explanation.sort(
-                key=lambda item:
-                    abs(
-                        item["contribution"]
-                    ),
-                reverse=True
-            )
-
-
-            # Top 5 only
-
-            ai_explanation = (
-                ai_explanation[:5]
-            )
-
-
-        except Exception as error:
-
-            # API should still work even
-            # if SHAP explanation fails
-
-            ai_explanation = []
-
-            print(
-                "SHAP Error:",
-                str(error)
-            )
-
-
-        # ====================================================
-        # 7. RECOMMENDATION
-        # ====================================================
-
-        if risk_level == "HIGH":
-
-            recommendation = (
-                "Verify the recipient "
-                "before continuing."
-            )
-
-        elif risk_level == "MEDIUM":
-
-            recommendation = (
-                "Review the transaction "
-                "details carefully."
-            )
-
-        else:
-
-            recommendation = (
-                "No significant risk detected."
-            )
-
-
-        # ====================================================
-        # 8. API RESPONSE
-        # ====================================================
+        txn = Transaction.objects.create(
+            transaction_id=txn_id,
+            user_id=data["user_id"],
+            recipient_id=data["recipient_id"],
+            amount=data["amount"],
+            recipient_new=data["recipient_new"],
+            device_changed=data["device_changed"],
+            location_changed=data["location_changed"],
+            transactions_last_1h=tx_last_1h,
+            average_transaction_amount=avg_amount,
+            account_age_days=180,
+            risk_score=data["risk_score"],
+            risk_level=data["risk_level"],
+            is_suspicious=is_suspicious,
+        )
 
         return Response(
             {
-                "risk_score":
-                    risk_score,
-
-                "risk_level":
-                    risk_level,
-
-                "xgboost_score":
-                    round(
-                        xgb_score,
-                        2
-                    ),
-
-                "fraud_probability":
-                    round(
-                        float(
-                            fraud_probability
-                        ),
-                        4
-                    ),
-
-                "behavioral_anomaly":
-                    bool(is_anomaly),
-
-                "reasons":
-                    reasons,
-
-                "ai_explanation":
-                    ai_explanation,
-
-                "recommendation":
-                    recommendation,
+                "status": "SUCCESS",
+                "message": "Transaction completed successfully.",
+                "message_bn": "লেনদেনটি সফলভাবে সম্পন্ন হয়েছে।",
+                "transaction_id": txn.transaction_id,
+                "amount": float(txn.amount),
+                "recipient_id": txn.recipient_id,
+                "risk_score": txn.risk_score,
+                "risk_level": txn.risk_level,
+                "timestamp": txn.created_at.strftime("%Y-%m-%d %H:%M:%S"),
             },
+            status=status.HTTP_201_CREATED,
+        )
 
+
+class TransactionStatsView(APIView):
+    """
+    Returns live statistics for the Analyst Operations Dashboard:
+    Total count, risk breakdown, high-risk volume, and recent transactions.
+    """
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        total_txns = Transaction.objects.count()
+        low_txns = Transaction.objects.filter(risk_level="LOW").count()
+        med_txns = Transaction.objects.filter(risk_level="MEDIUM").count()
+        high_txns = Transaction.objects.filter(risk_level="HIGH").count()
+
+        total_vol = Transaction.objects.aggregate(Sum("amount"))["amount__sum"] or 0
+        high_risk_vol = (
+            Transaction.objects.filter(risk_level="HIGH").aggregate(Sum("amount"))[
+                "amount__sum"
+            ]
+            or 0
+        )
+
+        recent = (
+            Transaction.objects.all()
+            .order_by("-created_at")[:50]
+            .values(
+                "id",
+                "transaction_id",
+                "user_id",
+                "recipient_id",
+                "amount",
+                "risk_score",
+                "risk_level",
+                "is_suspicious",
+                "created_at",
+                "recipient_new",
+                "device_changed",
+                "location_changed",
+            )
+        )
+
+        return Response(
+            {
+                "stats": {
+                    "total_transactions": total_txns,
+                    "safe_count": low_txns,
+                    "suspicious_count": med_txns,
+                    "high_risk_count": high_txns,
+                    "total_volume": float(total_vol),
+                    "high_risk_volume": float(high_risk_vol),
+                },
+                "recent_transactions": list(recent),
+            },
             status=status.HTTP_200_OK,
         )
