@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>upay SafeSend - AI Protected Payment</title>
+    <style>
+        :root {
+            --upay-orange: #f58220;
+            --upay-dark: #0b1e36;
+            --upay-navy: #13294b;
+            --upay-light: #fff5eb;
+            --upay-green: #108a44;
+            --upay-red: #d92525;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --border-color: #e5e7eb;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #eef2f6;
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Top Hackathon Demo Navigation */
+        .top-nav {
+            background: var(--upay-dark);
+            color: white;
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        .top-nav .brand-title {
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .top-nav .brand-title span {
+            color: var(--upay-orange);
+        }
+
+        .top-nav .nav-links {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .top-nav .nav-link {
+            color: #d1d5db;
+            text-decoration: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .top-nav .nav-link:hover, .top-nav .nav-link.active {
+            color: white;
+            background: rgba(245, 130, 32, 0.25);
+            border: 1px solid var(--upay-orange);
+        }
+
+        .lang-btn {
+            background: transparent;
+            border: 1px solid #9ca3af;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .lang-btn:hover {
+            border-color: var(--upay-orange);
+            color: var(--upay-orange);
+        }
+
+        /* Mobile Simulation Frame */
+        .app-wrapper {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 24px 16px;
+        }
+
+        .phone-frame {
+            width: 100%;
+            max-width: 410px;
+            background: white;
+            border-radius: 28px;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--border-color);
+        }
+
+        /* App Header */
+        .phone-header {
+            background: linear-gradient(135deg, var(--upay-orange) 0%, #e06c09 100%);
+            color: white;
+            padding: 24px 20px 18px;
+            position: relative;
+        }
+
+        .phone-header .logo-area {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .phone-header h1 {
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .badge-safesend {
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(4px);
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .user-chip {
+            margin-top: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            opacity: 0.95;
+        }
+
+        /* Balance Card */
+        .balance-card {
+            margin: -10px 18px 0;
+            background: white;
+            border-radius: 16px;
+            padding: 16px 20px;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+            border: 1px solid #fed7aa;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .balance-card .label {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .balance-card .amount {
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--upay-dark);
+            margin-top: 2px;
+        }
+
+        .balance-card .tag {
+            background: var(--upay-light);
+            color: var(--upay-orange);
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+
+        /* Content Area */
+        .content {
+            padding: 24px 20px 28px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--upay-dark);
+            margin-bottom: 6px;
+        }
+
+        .section-subtitle {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+            line-height: 1.4;
+        }
+
+        /* Preset Scenarios for Hackathon Demo */
+        .presets-box {
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 20px;
+        }
+
+        .presets-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .preset-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .preset-btn {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-size: 12px;
+            font-weight: 600;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .preset-btn:hover {
+            border-color: var(--upay-orange);
+            background: var(--upay-light);
+        }
+
+        .preset-btn span.badge-p {
+            font-size: 10px;
+            font-weight: 700;
+        }
+
+        .preset-safe {
+            border-left: 3px solid var(--upay-green);
+        }
+
+        .preset-high {
+            border-left: 3px solid var(--upay-red);
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--upay-dark);
+            margin-bottom: 6px;
+        }
+
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 14px 16px;
+            border: 1.5px solid var(--border-color);
+            border-radius: 12px;
+            font-size: 15px;
+            transition: all 0.2s;
+            background: #fafafa;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--upay-orange);
+            background: white;
+            box-shadow: 0 0 0 3px rgba(245, 130, 32, 0.15);
+        }
+
+        .currency-input {
+            position: relative;
+        }
+
+        .currency-sign {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 18px;
+            font-weight: 700;
+            color: #4b5563;
+        }
+
+        .currency-input input {
+            padding-left: 36px;
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .simulation-options {
+            background: #fff8f0;
+            border: 1px solid #fed7aa;
+            border-radius: 10px;
+            padding: 10px 14px;
+            margin-bottom: 20px;
+            font-size: 12px;
+        }
+
+        .sim-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 6px;
+            cursor: pointer;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 16px;
+            background: var(--upay-orange);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            box-shadow: 0 4px 12px rgba(245, 130, 32, 0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .submit-btn:hover {
+            background: #e06c09;
+        }
+
+        .submit-btn:active {
+            transform: scale(0.98);
+        }
+
+        .submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .loader-bar {
+            display: none;
+            text-align: center;
+            padding: 12px;
+            font-size: 13px;
+            color: var(--upay-orange);
+            font-weight: 600;
+        }
+
+        .guardian-note {
+            margin-top: 20px;
+            padding: 14px;
+            background: #f8fafc;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            font-size: 12px;
+            color: #64748b;
+            line-height: 1.45;
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        .guardian-note .icon {
+            font-size: 18px;
+        }
+
+        /* Success direct modal for LOW risk transactions */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(3px);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            width: 100%;
+            max-width: 380px;
+            padding: 24px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+
+        .success-icon {
+            width: 64px;
+            height: 64px;
+            background: #dcfce7;
+            color: var(--upay-green);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            margin: 0 auto 16px;
+        }
+
+        .receipt-card {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 14px;
+            margin: 16px 0;
+            text-align: left;
+            font-size: 13px;
+        }
+
+        .receipt-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .receipt-row:last-child {
+            margin-bottom: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Hackathon Demo Nav -->
+    <nav class="top-nav">
+        <div class="brand-title">
+            <span>upay</span> SafeSend
+        </div>
+        <div class="nav-links">
+            <a href="/" class="nav-link active">📱 <span data-i18n="nav_wallet">Mobile Wallet</span></a>
+            <a href="/simulator/" class="nav-link">🔬 <span data-i18n="nav_sim">AI Simulator</span></a>
+            <a href="/analyst/" class="nav-link">📊 <span data-i18n="nav_analyst">Analyst Portal</span></a>
+            <button class="lang-btn" onclick="toggleLanguage()" id="langBtn">বাংলা</button>
+        </div>
+    </nav>
+
+    <div class="app-wrapper">
+        <div class="phone-frame">
+            <!-- Header -->
+            <div class="phone-header">
+                <div class="logo-area">
+                    <h1>upay</h1>
+                    <div class="badge-safesend">
+                        🛡️ SafeSend AI
+                    </div>
+                </div>
+                <div class="user-chip">
+                    <span>👤 <span data-i18n="user_id">User</span>: <strong>U0001 (01711-XXXXXX)</strong></span>
+                </div>
+            </div>
+
+            <!-- Balance -->
+            <div class="balance-card">
+                <div>
+                    <div class="label" data-i18n="balance_label">Available Balance</div>
+                    <div class="amount" id="userBalance">৳45,600.00</div>
+                </div>
+                <div class="tag">ACTIVE</div>
+            </div>
+
+            <!-- Content -->
+            <div class="content">
+                <div class="section-title" data-i18n="send_title">Send Money</div>
+                <div class="section-subtitle" data-i18n="send_subtitle">
+                    Enter recipient and amount. SafeSend AI will screen the transfer for fraud and scam risk before completion.
+                </div>
+
+                <!-- Presets for Judges -->
+                <div class="presets-box">
+                    <div class="presets-title" data-i18n="presets_title">⚡ 1-Click Judge Demo Scenarios</div>
+                    <div class="preset-buttons">
+                        <button type="button" class="preset-btn preset-safe" onclick="applyPreset('safe')">
+                            <span class="badge-p" style="color:var(--upay-green);" data-i18n="preset_safe_badge">🟢 NORMAL TRANSFER</span>
+                            <span>৳1,500 • Known No.</span>
+                        </button>
+                        <button type="button" class="preset-btn preset-high" onclick="applyPreset('high')">
+                            <span class="badge-p" style="color:var(--upay-red);" data-i18n="preset_high_badge">🚨 3 AM SCAM / TAKEOVER</span>
+                            <span>৳38,500 • Unfamiliar No.</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Form -->
+                <form id="sendForm">
+                    <div class="form-group">
+                        <label for="recipient" data-i18n="lbl_recipient">Recipient Number / ID</label>
+                        <input type="text" id="recipient" placeholder="e.g. 01711223344 or R0101" required value="01711223344">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="amount" data-i18n="lbl_amount">Amount</label>
+                        <div class="currency-input">
+                            <span class="currency-sign">৳</span>
+                            <input type="number" id="amount" min="1" step="any" placeholder="0" required value="1500">
+                        </div>
+                    </div>
+
+                    <!-- Hidden or toggleable simulation options -->
+                    <div class="simulation-options">
+                        <div style="font-weight:700; color:var(--upay-dark);" data-i18n="sim_header">Environment Signals (Simulated)</div>
+                        <label class="sim-checkbox">
+                            <input type="checkbox" id="device_changed">
+                            <span data-i18n="chk_device">New / Unfamiliar Device Detected</span>
+                        </label>
+                        <label class="sim-checkbox">
+                            <input type="checkbox" id="location_changed">
+                            <span data-i18n="chk_location">Unusual Geolocation Shift</span>
+                        </label>
+                        <div style="margin-top:6px; font-size:11px; color:#9a3412;">
+                            <span data-i18n="sim_hour_note">Simulated Hour: </span>
+                            <select id="sim_hour" style="font-size:11px; padding:2px 4px; border-radius:4px; border:1px solid #fdba74;">
+                                <option value="" selected>Current Local Time</option>
+                                <option value="3">3:00 AM (Late Night Risk)</option>
+                                <option value="14">2:00 PM (Normal Daytime)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="submit-btn" id="continueBtn">
+                        🛡️ <span data-i18n="btn_check">SafeSend Screen & Continue</span>
+                    </button>
+                </form>
+
+                <div class="loader-bar" id="loader">
+                    ⚙️ <span data-i18n="loader_text">SafeSend AI analyzing 9 behavioral features & anomaly scores...</span>
+                </div>
+
+                <div class="guardian-note">
+                    <div class="icon">🛡️</div>
+                    <div data-i18n="guardian_desc">
+                        SafeSend evaluates your historical spending patterns, recipient novelty, velocity, and device signals in milliseconds using XGBoost, Isolation Forest, and SHAP.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Direct Low Risk Success Modal -->
+    <div class="modal-overlay" id="successModal">
+        <div class="modal-content">
+            <div class="success-icon">✓</div>
+            <h2 style="font-size:20px; color:var(--upay-dark); margin-bottom:4px;" data-i18n="modal_success_title">Transaction Successful!</h2>
+            <p style="font-size:13px; color:var(--text-muted);" data-i18n="modal_success_sub">SafeSend verified normal activity. No risk detected.</p>
+            
+            <div class="receipt-card">
+                <div class="receipt-row">
+                    <span style="color:#64748b;" data-i18n="rcpt_txnid">Transaction ID</span>
+                    <strong id="rcptTxnId">UPAY-87342910</strong>
+                </div>
+                <div class="receipt-row">
+                    <span style="color:#64748b;" data-i18n="rcpt_recipient">Recipient</span>
+                    <strong id="rcptRecipient">--</strong>
+                </div>
+                <div class="receipt-row">
+                    <span style="color:#64748b;" data-i18n="rcpt_amount">Amount</span>
+                    <strong id="rcptAmount" style="color:var(--upay-green);">৳0.00</strong>
+                </div>
+                <div class="receipt-row">
+                    <span style="color:#64748b;" data-i18n="rcpt_risk">SafeSend Score</span>
+                    <span style="color:var(--upay-green); font-weight:700;" id="rcptRisk">5% (LOW)</span>
+                </div>
+            </div>
+
+            <button class="submit-btn" onclick="closeSuccessModal()" data-i18n="btn_done">Done</button>
+        </div>
+    </div>
+
+    <script>
+        // Bilingual Dictionary
+        const translations = {
+            en: {
+                nav_wallet: "Mobile Wallet",
+                nav_sim: "AI Simulator",
+                nav_analyst: "Analyst Portal",
+                user_id: "User",
+                balance_label: "Available Balance",
+                send_title: "Send Money",
+                send_subtitle: "Enter recipient and amount. SafeSend AI will screen the transfer for fraud and scam risk before completion.",
+                presets_title: "⚡ 1-Click Judge Demo Scenarios",
+                preset_safe_badge: "🟢 NORMAL TRANSFER",
+                preset_high_badge: "🚨 3 AM SCAM / TAKEOVER",
+                lbl_recipient: "Recipient Number / ID",
+                lbl_amount: "Amount",
+                sim_header: "Environment Signals (Simulated)",
+                chk_device: "New / Unfamiliar Device Detected",
+                chk_location: "Unusual Geolocation Shift",
+                sim_hour_note: "Simulated Hour: ",
+                btn_check: "SafeSend Screen & Continue",
+                loader_text: "SafeSend AI analyzing 9 behavioral features & anomaly scores...",
+                guardian_desc: "SafeSend evaluates your historical spending patterns, recipient novelty, velocity, and device signals in milliseconds using XGBoost, Isolation Forest, and SHAP.",
+                modal_success_title: "Transaction Successful!",
+                modal_success_sub: "SafeSend verified normal activity. No risk detected.",
+                rcpt_txnid: "Transaction ID",
+                rcpt_recipient: "Recipient",
+                rcpt_amount: "Amount",
+                rcpt_risk: "SafeSend Score",
+                btn_done: "Done"
+            },
+            bn: {
+                nav_wallet: "মোবাইল ওয়ালেট",
+                nav_sim: "এআই সিমুলেটর",
+                nav_analyst: "অ্যানালিস্ট পোর্টাল",
+                user_id: "ব্যবহারকারী",
+                balance_label: "বর্তমান ব্যালেন্স",
+                send_title: "টাকা পাঠান (Send Money)",
+                send_subtitle: "প্রাপকের নম্বর ও টাকার পরিমাণ দিন। সেফসেন্ড এআই লেনদেন সম্পন্ন হওয়ার আগেই প্রতারণা ও ঝুঁকি যাচাই করবে।",
+                presets_title: "⚡ বিচারকদের জন্য এক ক্লিকে ডেমো",
+                preset_safe_badge: "🟢 স্বাভাবিক লেনদেন",
+                preset_high_badge: "🚨 রাত ৩টায় বড় জালিয়াতি",
+                lbl_recipient: "প্রাপকের নম্বর / আইডি",
+                lbl_amount: "টাকার পরিমাণ",
+                sim_header: "পরিবেশ সংকেত (সিমুলেশন)",
+                chk_device: "অপরিচিত বা নতুন ডিভাইস শনাক্ত হয়েছে",
+                chk_location: "স্বাভাবিক অবস্থানের বাইরে লেনদেন",
+                sim_hour_note: "সিমুলেটেড সময়: ",
+                btn_check: "সেফসেন্ড যাচাই করে এগিয়ে যান",
+                loader_text: "সেফসেন্ড এআই আচরণগত ফিচার এবং অ্যানোমালি স্কোর বিশ্লেষণ করছে...",
+                guardian_desc: "সেফসেন্ড আপনার অতীতের খরচের অভ্যাস, প্রাপকের পরিচয়, গতিবেগ এবং ডিভাইস তথ্য এক্সজিবুস্ট ও আইসোলেশন ফরেস্টের মাধ্যমে মিলি-সেকেন্ডে যাচাই করে।",
+                modal_success_title: "লেনদেন সফল হয়েছে!",
+                modal_success_sub: "সেফসেন্ড কোনো ঝুঁকি খুঁজে পায়নি। লেনদেন নিরাপদ।",
+                rcpt_txnid: "লেনদেন আইডি",
+                rcpt_recipient: "প্রাপক",
+                rcpt_amount: "পরিমাণ",
+                rcpt_risk: "ঝুঁকির মাত্রা",
+                btn_done: "ঠিক আছে"
+            }
+        };
+
+        let currentLang = localStorage.getItem("safesend_lang") || "en";
+
+        function setLanguage(lang) {
+            currentLang = lang;
+            localStorage.setItem("safesend_lang", lang);
+            document.getElementById("langBtn").innerText = lang === "en" ? "বাংলা" : "English";
+            
+            document.querySelectorAll("[data-i18n]").forEach(elem => {
+                const key = elem.getAttribute("data-i18n");
+                if (translations[lang] && translations[lang][key]) {
+                    elem.innerText = translations[lang][key];
+                }
+            });
+        }
+
+        function toggleLanguage() {
+            setLanguage(currentLang === "en" ? "bn" : "en");
+        }
+
+        // Apply Preset Scenarios for Instant Judge Demos
+        function applyPreset(type) {
+            const recipientInput = document.getElementById("recipient");
+            const amountInput = document.getElementById("amount");
+            const deviceCheck = document.getElementById("device_changed");
+            const locCheck = document.getElementById("location_changed");
+            const simHour = document.getElementById("sim_hour");
+
+            if (type === "safe") {
+                recipientInput.value = "01711223344";
+                amountInput.value = "1500";
+                deviceCheck.checked = false;
+                locCheck.checked = false;
+                simHour.value = "14";
+            } else if (type === "high") {
+                recipientInput.value = "01300998877";
+                amountInput.value = "38500";
+                deviceCheck.checked = true;
+                locCheck.checked = true;
+                simHour.value = "3";
+            }
+        }
+
+        const form = document.getElementById("sendForm");
+        const continueBtn = document.getElementById("continueBtn");
+        const loader = document.getElementById("loader");
+
+        form.addEventListener("submit", async function(e) {
+            e.preventDefault();
+
+            const recipient = document.getElementById("recipient").value.trim();
+            const amount = parseFloat(document.getElementById("amount").value);
+            const deviceChanged = document.getElementById("device_changed").checked;
+            const locationChanged = document.getElementById("location_changed").checked;
+            const simHourVal = document.getElementById("sim_hour").value;
+
+            continueBtn.disabled = true;
+            loader.style.display = "block";
+
+            const payload = {
+                user_id: "U0001",
+                recipient_id: recipient,
+                amount: amount,
+                device_changed: deviceChanged,
+                location_changed: locationChanged
+            };
+
+            if (simHourVal !== "") {
+                payload.hour = parseInt(simHourVal);
+            }
+
+            try {
+                const response = await fetch("/api/risk/send-money/", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                if (!response.ok) {
+                    alert("Analysis error: " + (result.detail || "Unable to check risk."));
+                    return;
+                }
+
+                // Attach current language
+                result.selected_language = currentLang;
+
+                // Save to session storage for warning/confirmation page
+                sessionStorage.setItem("safesend_result", JSON.stringify(result));
+
+                // If risk is MEDIUM or HIGH -> Navigate to warning screen for intervention!
+                // If risk is LOW -> Directly confirm transaction or show success modal
+                if (result.risk_level === "HIGH" || result.risk_level === "MEDIUM") {
+                    window.location.href = "/warning/";
+                } else {
+                    // Auto-confirm low risk transaction into DB
+                    await autoConfirmLowRisk(result);
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Network error. Please make sure the server is running.");
+            } finally {
+                continueBtn.disabled = false;
+                loader.style.display = "none";
+            }
+        });
+
+        async function autoConfirmLowRisk(result) {
+            try {
+                const confRes = await fetch("/api/risk/confirm/", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        user_id: result.user_id,
+                        recipient_id: result.recipient_id,
+                        amount: result.amount,
+                        risk_score: result.risk_score,
+                        risk_level: result.risk_level,
+                        recipient_new: result.features_analyzed.recipient_new,
+                        device_changed: result.features_analyzed.device_changed,
+                        location_changed: result.features_analyzed.location_changed,
+                        verified_by_user: true
+                    })
+                });
+                const confData = await confRes.json();
+                document.getElementById("rcptTxnId").innerText = confData.transaction_id || "UPAY-OK";
+                document.getElementById("rcptRecipient").innerText = result.recipient_id;
+                document.getElementById("rcptAmount").innerText = "৳" + result.amount.toLocaleString();
+                document.getElementById("rcptRisk").innerText = result.risk_score + "% (LOW)";
+                document.getElementById("successModal").style.display = "flex";
+
+                // Update balance in UI
+                let currentBal = 45600.00;
+                let newBal = Math.max(0, currentBal - result.amount);
+                document.getElementById("userBalance").innerText = "৳" + newBal.toLocaleString(undefined, {minimumFractionDigits: 2});
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function closeSuccessModal() {
+            document.getElementById("successModal").style.display = "none";
+        }
+
+        // Initialize language
+        document.addEventListener("DOMContentLoaded", () => {
+            setLanguage(currentLang);
+        });
+    </script>
+</body>
+</html>

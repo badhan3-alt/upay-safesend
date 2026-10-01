@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeSend Fraud Operations & Investigation Portal - upay</title>
+    <style>
+        :root {
+            --upay-orange: #f58220;
+            --upay-dark: #0b1e36;
+            --upay-navy: #13294b;
+            --upay-light: #fff5eb;
+            --upay-green: #108a44;
+            --upay-yellow: #d97706;
+            --upay-red: #dc2626;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --border-color: #e5e7eb;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f8fafc;
+            color: var(--text-main);
+            min-height: 100vh;
+        }
+
+        /* Top Nav */
+        .top-nav {
+            background: var(--upay-dark);
+            color: white;
+            padding: 12px 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        .top-nav .brand-title {
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .top-nav .brand-title span {
+            color: var(--upay-orange);
+        }
+
+        .top-nav .nav-links {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .top-nav .nav-link {
+            color: #d1d5db;
+            text-decoration: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+
+        .top-nav .nav-link:hover, .top-nav .nav-link.active {
+            color: white;
+            background: rgba(245, 130, 32, 0.25);
+            border: 1px solid var(--upay-orange);
+        }
+
+        /* Container */
+        .container {
+            max-width: 1240px;
+            margin: 28px auto;
+            padding: 0 24px;
+        }
+
+        .header-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 24px;
+        }
+
+        .header-bar h1 {
+            font-size: 24px;
+            color: var(--upay-dark);
+            margin-bottom: 4px;
+        }
+
+        .header-bar p {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        /* Stat Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        @media (max-width: 900px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 14px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .stat-card .label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-card .val {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--upay-dark);
+        }
+
+        .stat-card.safe .val { color: var(--upay-green); }
+        .stat-card.med .val { color: var(--upay-yellow); }
+        .stat-card.high .val { color: var(--upay-red); }
+
+        /* Filter & Search Bar */
+        .controls-card {
+            background: white;
+            padding: 16px 20px;
+            border-radius: 14px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 14px;
+        }
+
+        .filter-tabs {
+            display: flex;
+            gap: 8px;
+        }
+
+        .filter-btn {
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            padding: 7px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .filter-btn.active, .filter-btn:hover {
+            background: var(--upay-dark);
+            color: white;
+            border-color: var(--upay-dark);
+        }
+
+        .search-box {
+            position: relative;
+        }
+
+        .search-box input {
+            padding: 8px 14px 8px 32px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 13px;
+            width: 260px;
+        }
+
+        .search-box span {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 13px;
+            color: #94a3b8;
+        }
+
+        /* Table Card */
+        .table-card {
+            background: white;
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.04);
+            overflow: hidden;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 13.5px;
+        }
+
+        th {
+            background: #f8fafc;
+            padding: 14px 18px;
+            font-weight: 700;
+            color: #475569;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 14px 18px;
+            border-bottom: 1px solid #f1f5f9;
+            color: var(--text-main);
+        }
+
+        tr:hover td {
+            background: #f8fafc;
+        }
+
+        .risk-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .risk-badge.HIGH { background: #fee2e2; color: var(--upay-red); }
+        .risk-badge.MEDIUM { background: #fef3c7; color: var(--upay-yellow); }
+        .risk-badge.LOW { background: #dcfce7; color: var(--upay-green); }
+
+        .btn-investigate {
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--upay-dark);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-investigate:hover {
+            background: var(--upay-orange);
+            color: white;
+            border-color: var(--upay-orange);
+        }
+
+        /* Offcanvas / Modal for Investigation */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(3px);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .investigation-card {
+            background: white;
+            width: 100%;
+            max-width: 680px;
+            max-height: 90vh;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .inv-header {
+            background: var(--upay-dark);
+            color: white;
+            padding: 20px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .inv-body {
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        .inv-qa-block {
+            background: #f8fafc;
+            border-left: 4px solid var(--upay-orange);
+            border-radius: 8px;
+            padding: 14px 16px;
+            margin-bottom: 14px;
+        }
+
+        .inv-qa-block strong {
+            display: block;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748b;
+            margin-bottom: 4px;
+        }
+
+        .inv-footer {
+            padding: 16px 24px;
+            background: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top Nav -->
+    <nav class="top-nav">
+        <div class="brand-title">
+            <span>upay</span> SafeSend Fraud Operations & Investigation Copilot
+        </div>
+        <div class="nav-links">
+            <a href="/" class="nav-link">📱 Mobile Wallet</a>
+            <a href="/simulator/" class="nav-link">🔬 AI Simulator</a>
+            <a href="/analyst/" class="nav-link active">📊 Analyst Portal</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Header -->
+        <div class="header-bar">
+            <div>
+                <h1>Real-Time Transaction Risk Monitor</h1>
+                <p>MFS Operations Intelligence: screening live payments, explainable scam detection, and mule account prevention.</p>
+            </div>
+            <div>
+                <button class="filter-btn" onclick="location.reload()" style="background:white;">🔄 Refresh Feed</button>
+            </div>
+        </div>
+
+        <!-- Stat Cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <span class="label">Total Monitored Payments</span>
+                <span class="val">{{ total_count }}</span>
+            </div>
+            <div class="stat-card safe">
+                <span class="label">Safe Transactions (Low Risk)</span>
+                <span class="val">{{ low_count }}</span>
+            </div>
+            <div class="stat-card med">
+                <span class="label">Suspicious Transfers (Medium)</span>
+                <span class="val">{{ med_count }}</span>
+            </div>
+            <div class="stat-card high">
+                <span class="label">High Risk Intercepted</span>
+                <span class="val">{{ high_count }}</span>
+            </div>
+        </div>
+
+        <!-- Controls Bar -->
+        <div class="controls-card">
+            <div class="filter-tabs">
+                <button class="filter-btn active" onclick="filterRisk('ALL')">All Transactions</button>
+                <button class="filter-btn" onclick="filterRisk('HIGH')">🚨 High Risk ({{ high_count }})</button>
+                <button class="filter-btn" onclick="filterRisk('MEDIUM')">⚠️ Medium Risk ({{ med_count }})</button>
+                <button class="filter-btn" onclick="filterRisk('LOW')">✅ Low Risk ({{ low_count }})</button>
+            </div>
+
+            <div class="search-box">
+                <span>🔍</span>
+                <input type="text" id="searchInput" onkeyup="searchTable()" placeholder="Search User, Recipient, or Txn ID...">
+            </div>
+        </div>
+
+        <!-- Transactions Table -->
+        <div class="table-card">
+            <table id="txnTable">
+                <thead>
+                    <tr>
+                        <th>Txn ID</th>
+                        <th>User ID</th>
+                        <th>Recipient</th>
+                        <th>Amount</th>
+                        <th>Risk Score</th>
+                        <th>Status</th>
+                        <th>Signals</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in transactions %}
+                    <tr class="txn-row" data-risk="{{ t.risk_level }}">
+                        <td><strong>{{ t.transaction_id }}</strong></td>
+                        <td>{{ t.user_id }}</td>
+                        <td>{{ t.recipient_id }}</td>
+                        <td><strong>৳{{ t.amount }}</strong></td>
+                        <td>
+                            <span style="font-weight:800; font-size:14px; color:{% if t.risk_level == 'HIGH' %}var(--upay-red){% elif t.risk_level == 'MEDIUM' %}var(--upay-yellow){% else %}var(--upay-green){% endif %};">
+                                {{ t.risk_score }}%
+                            </span>
+                        </td>
+                        <td>
+                            <span class="risk-badge {{ t.risk_level }}">{{ t.risk_level }}</span>
+                        </td>
+                        <td style="font-size:12px; color:#64748b;">
+                            {% if t.recipient_new %}<span title="New Recipient">👤 New</span>{% endif %}
+                            {% if t.device_changed %}<span title="Device Changed">📱 Device</span>{% endif %}
+                            {% if t.location_changed %}<span title="Location Changed">📍 Location</span>{% endif %}
+                        </td>
+                        <td>
+                            <button class="btn-investigate" onclick="openInvestigate('{{ t.transaction_id }}', '{{ t.user_id }}', '{{ t.recipient_id }}', {{ t.amount }}, {{ t.risk_score }}, '{{ t.risk_level }}', {{ t.recipient_new|lower }}, {{ t.device_changed|lower }})">
+                                🔍 Investigate
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" style="text-align:center; padding:30px; color:#64748b;">
+                            No transactions found. Run <code>python manage.py seed_data</code> to seed demo transactions.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- AI Investigation Copilot Modal -->
+    <div class="modal-overlay" id="invModal">
+        <div class="investigation-card">
+            <div class="inv-header">
+                <div style="font-weight:700; font-size:16px;">
+                    🛡️ AI Investigation Assistant: <span id="modalTxnId">UPAY-0000</span>
+                </div>
+                <button onclick="closeInvestigate()" style="background:transparent; border:none; color:white; font-size:20px; cursor:pointer;">&times;</button>
+            </div>
+
+            <div class="inv-body">
+                <!-- Top summary -->
+                <div style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; padding:14px 18px; border-radius:12px; margin-bottom:18px;">
+                    <div>
+                        <div style="font-size:11px; color:#64748b; font-weight:700;">TRANSACTION VALUE</div>
+                        <div style="font-size:20px; font-weight:800; color:var(--upay-dark);" id="modalAmount">৳0.00</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:11px; color:#64748b; font-weight:700;">AI RISK LEVEL</div>
+                        <div class="risk-badge" id="modalRiskBadge">HIGH</div>
+                    </div>
+                </div>
+
+                <!-- 3 Key Hackathon Questions -->
+                <div class="inv-qa-block">
+                    <strong>1. What Happened?</strong>
+                    <div id="modalWhatHappened">--</div>
+                </div>
+
+                <div class="inv-qa-block" style="border-left-color: var(--upay-red);">
+                    <strong>2. Why Is It Risky? (Root Causes)</strong>
+                    <div id="modalWhyRisky">--</div>
+                </div>
+
+                <div class="inv-qa-block" style="border-left-color: var(--upay-green);">
+                    <strong>3. What Should Upay Do Next? (Action Plan)</strong>
+                    <div id="modalWhatNext">--</div>
+                </div>
+
+                <!-- Model Pipeline breakdown -->
+                <div style="background:#f1f5f9; border-radius:10px; padding:12px 16px; font-size:12px; color:#475569; margin-top:14px;">
+                    <strong>AI Architecture Inference Trace:</strong><br>
+                    • Supervised Layer: XGBoost Tree Classifier evaluates fraud probability from historical behavioral distributions.<br>
+                    • Unsupervised Layer: Isolation Forest flags zero-day anomalies and out-of-distribution transfer velocities.<br>
+                    • Explainability Layer: SHAP computes exact Shapley marginal contributions for transparent auditing.
+                </div>
+            </div>
+
+            <div class="inv-footer">
+                <button class="filter-btn" onclick="alert('Transaction flagged for senior risk manager review.'); closeInvestigate();">
+                    🚩 Flag for Mule Investigation
+                </button>
+                <button class="filter-btn" style="background:var(--upay-green); color:white; border:none;" onclick="alert('Transaction verified as legitimate.'); closeInvestigate();">
+                    ✓ Mark Legitimate
+                </button>
+                <button class="filter-btn" style="background:var(--upay-dark); color:white; border:none;" onclick="closeInvestigate()">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function filterRisk(level) {
+            document.querySelectorAll(".filter-btn").forEach(btn => btn.classList.remove("active"));
+            event.target.classList.add("active");
+
+            const rows = document.querySelectorAll(".txn-row");
+            rows.forEach(r => {
+                if (level === "ALL" || r.getAttribute("data-risk") === level) {
+                    r.style.display = "";
+                } else {
+                    r.style.display = "none";
+                }
+            });
+        }
+
+        function searchTable() {
+            const query = document.getElementById("searchInput").value.toLowerCase();
+            const rows = document.querySelectorAll(".txn-row");
+            rows.forEach(r => {
+                const text = r.innerText.toLowerCase();
+                r.style.display = text.includes(query) ? "" : "none";
+            });
+        }
+
+        function openInvestigate(txnId, userId, recipientId, amount, riskScore, riskLevel, isNew, devChanged) {
+            document.getElementById("modalTxnId").innerText = txnId;
+            document.getElementById("modalAmount").innerText = "৳" + Number(amount).toLocaleString();
+            
+            const badge = document.getElementById("modalRiskBadge");
+            badge.innerText = riskScore + "% " + riskLevel;
+            badge.className = "risk-badge " + riskLevel;
+
+            document.getElementById("modalWhatHappened").innerText = 
+                `User ${userId} initiated a digital transfer of ৳${Number(amount).toLocaleString()} to recipient ${recipientId}.`;
+
+            if (riskLevel === "HIGH") {
+                document.getElementById("modalWhyRisky").innerText = 
+                    `High anomaly detected: Transfer amount is significantly above the user's habitual average (৳2,500). ` +
+                    (isNew ? "Recipient has no prior transaction history with this account. " : "") +
+                    (devChanged ? "Transfer was executed from an unfamiliar or recently switched device. " : "") +
+                    "Combined XGBoost and Isolation Forest signals indicate probable account takeover or social engineering scam.";
+
+                document.getElementById("modalWhatNext").innerText = 
+                    "Pre-transaction intervention applied. SafeSend intercepted the flow to warn the user. " +
+                    "If customer overrides, freeze funds for a 15-minute cooling off period or mandate biometric verification.";
+            } else if (riskLevel === "MEDIUM") {
+                document.getElementById("modalWhyRisky").innerText = 
+                    "Moderate deviation detected from typical spending distribution. Volume or timing is slightly elevated.";
+                document.getElementById("modalWhatNext").innerText = 
+                    "Present contextual safety advisory to user with recipient verification confirmation.";
+            } else {
+                document.getElementById("modalWhyRisky").innerText = 
+                    "No abnormal signals detected. Recipient is established and transaction amount conforms to normal daily distribution.";
+                document.getElementById("modalWhatNext").innerText = 
+                    "Instant straight-through processing. No user friction required.";
+            }
+
+            document.getElementById("invModal").style.display = "flex";
+        }
+
+        function closeInvestigate() {
+            document.getElementById("invModal").style.display = "none";
+        }
+    </script>
+</body>
+</html>
