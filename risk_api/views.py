@@ -1,6 +1,3 @@
-from django.shortcuts import render
-
-# Create your views here.
 from pathlib import Path
 
 import joblib
@@ -12,6 +9,10 @@ from rest_framework.response import Response
 
 from .serializers import RiskPredictionSerializer
 
+
+# -----------------------------
+# Load XGBoost model
+# -----------------------------
 
 MODEL_PATH = (
     Path(settings.BASE_DIR)
@@ -27,18 +28,33 @@ FEATURE_PATH = (
     / "features.pkl"
 )
 
+ANOMALY_MODEL_PATH = (
+    Path(settings.BASE_DIR)
+    / "model"
+    / "saved_models"
+    / "isolation_forest.pkl"
+)
+
+
 model = joblib.load(MODEL_PATH)
 features = joblib.load(FEATURE_PATH)
+anomaly_model = joblib.load(ANOMALY_MODEL_PATH)
 
 
 class RiskPredictionView(generics.GenericAPIView):
+
     serializer_class = RiskPredictionSerializer
 
     def post(self, request):
+
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         data = serializer.validated_data
+
+        # -----------------------------
+        # Calculate amount ratio
+        # -----------------------------
 
         average_amount = data["average_transaction_amount"]
 
@@ -46,6 +62,11 @@ class RiskPredictionView(generics.GenericAPIView):
             amount_ratio = data["amount"] / average_amount
         else:
             amount_ratio = 0
+
+
+        # -----------------------------
+        # Prepare transaction data
+        # -----------------------------
 
         transaction = pd.DataFrame([
             {
@@ -63,16 +84,59 @@ class RiskPredictionView(generics.GenericAPIView):
 
         transaction = transaction[features]
 
+
+        # -----------------------------
+        # XGBoost prediction
+        # -----------------------------
+
         fraud_probability = model.predict_proba(transaction)[0][1]
 
-        risk_score = round(float(fraud_probability) * 100, 2)
+        xgb_score = float(fraud_probability) * 100
+
+
+        # -----------------------------
+        # Isolation Forest
+        # -----------------------------
+
+        anomaly_prediction = anomaly_model.predict(transaction)[0]
+
+        # Isolation Forest:
+        # 1  = normal
+        # -1 = anomaly
+
+        is_anomaly = anomaly_prediction == -1
+
+        anomaly_score = 100 if is_anomaly else 0
+
+
+        # -----------------------------
+        # Combined risk score
+        # -----------------------------
+
+        risk_score = round(
+            (0.80 * xgb_score)
+            + (0.20 * anomaly_score),
+            2
+        )
+
+
+        # -----------------------------
+        # Risk level
+        # -----------------------------
 
         if risk_score >= 70:
             risk_level = "HIGH"
+
         elif risk_score >= 30:
             risk_level = "MEDIUM"
+
         else:
             risk_level = "LOW"
+
+
+        # -----------------------------
+        # Generate reasons
+        # -----------------------------
 
         reasons = []
 
@@ -94,17 +158,45 @@ class RiskPredictionView(generics.GenericAPIView):
         if data["hour"] <= 5:
             reasons.append("Transaction at unusual time")
 
+        if is_anomaly:
+            reasons.append(
+                "Transaction behavior is significantly different from normal patterns"
+            )
+
+
+        # -----------------------------
+        # Recommendation
+        # -----------------------------
+
         if risk_level == "HIGH":
-            recommendation = "Verify the recipient before continuing."
+
+            recommendation = (
+                "Verify the recipient before continuing."
+            )
+
         elif risk_level == "MEDIUM":
-            recommendation = "Review the transaction details carefully."
+
+            recommendation = (
+                "Review the transaction details carefully."
+            )
+
         else:
-            recommendation = "No significant risk detected."
+
+            recommendation = (
+                "No significant risk detected."
+            )
+
+
+        # -----------------------------
+        # API response
+        # -----------------------------
 
         return Response(
             {
                 "risk_score": risk_score,
                 "risk_level": risk_level,
+                "xgboost_score": round(xgb_score, 2),
+                "behavioral_anomaly": is_anomaly,
                 "reasons": reasons,
                 "recommendation": recommendation,
             },
