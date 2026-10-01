@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: upay-safesend
+    runtime: python
+    plan: free
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn safesend.wsgi:application"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.9
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        generateValue: true
