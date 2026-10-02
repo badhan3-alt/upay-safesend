@@ -445,6 +445,364 @@
         .receipt-row:last-child {
             margin-bottom: 0;
         }
+
+        .receipt-row span,
+        .receipt-row strong {
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+
+        .modal-content {
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+        }
+
+        @media (max-width: 640px) {
+            .top-nav {
+                flex-wrap: wrap;
+                gap: 10px;
+                padding: 12px 16px;
+            }
+
+            .top-nav .brand-title,
+            .top-nav .nav-links {
+                width: 100%;
+            }
+
+            .top-nav .nav-links {
+                flex-wrap: wrap;
+                justify-content: space-between;
+                gap: 4px;
+            }
+
+            .top-nav .nav-link {
+                padding: 6px 4px;
+                font-size: 12px;
+            }
+
+            .lang-btn {
+                min-height: 36px;
+            }
+
+            .app-wrapper {
+                align-items: flex-start;
+                padding: 16px 12px 24px;
+            }
+
+            .phone-frame {
+                border-radius: 20px;
+            }
+
+            .phone-header {
+                padding: 20px 16px 16px;
+            }
+
+            .phone-header h1 {
+                font-size: 20px;
+            }
+
+            .badge-safesend {
+                font-size: 10px;
+                padding: 4px 7px;
+            }
+
+            .balance-card {
+                margin-right: 12px;
+                margin-left: 12px;
+                padding: 14px;
+                gap: 10px;
+            }
+
+            .balance-card .amount {
+                font-size: 21px;
+                overflow-wrap: anywhere;
+            }
+
+            .content {
+                padding: 20px 14px 24px;
+            }
+
+            .preset-buttons {
+                grid-template-columns: 1fr;
+            }
+
+            .preset-btn {
+                min-width: 0;
+                overflow-wrap: anywhere;
+            }
+
+            .guardian-note {
+                padding: 12px;
+            }
+
+            .modal-overlay {
+                padding: 12px;
+            }
+
+            .modal-content {
+                border-radius: 16px;
+                padding: 20px 16px;
+            }
+        }
+
+        @media (min-width: 641px) {
+            .app-wrapper {
+                align-items: flex-start;
+                padding: 32px 24px;
+            }
+
+            .phone-frame {
+                max-width: 620px;
+            }
+        }
+
+        @media (min-width: 900px) {
+            .phone-frame {
+                max-width: 980px;
+                display: grid;
+                grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+                grid-template-areas:
+                    "header header"
+                    "balance content";
+                align-self: flex-start;
+            }
+
+            .phone-header { grid-area: header; }
+            .balance-card {
+                grid-area: balance;
+                align-self: start;
+                margin: 24px 0 24px 24px;
+            }
+
+            .content {
+                grid-area: content;
+                min-width: 0;
+                padding: 28px;
+            }
+        }
+
+        :root {
+            --upay-orange: #e97818;
+            --upay-dark: #17314d;
+            --upay-navy: #24435f;
+            --upay-light: #fff6eb;
+            --text-main: #263746;
+            --text-muted: #687987;
+            --border-color: #e7edf1;
+        }
+
+        body {
+            background: #f5f7f8;
+            line-height: 1.55;
+        }
+
+        .top-nav {
+            background: #fff;
+            color: var(--upay-dark);
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: 0 3px 14px rgba(23, 49, 77, 0.04);
+        }
+
+        .top-nav .nav-link {
+            color: #536575;
+        }
+
+        .top-nav .nav-link:hover,
+        .top-nav .nav-link.active {
+            color: var(--upay-dark);
+            background: #fff4e7;
+            border-color: #f4c99f;
+        }
+
+        .lang-btn {
+            border-color: #d6dfe5;
+            color: var(--upay-dark);
+            min-height: 36px;
+            padding: 6px 12px;
+            border-radius: 10px;
+        }
+
+        .phone-frame {
+            border-color: #e8edf0;
+            box-shadow: 0 16px 44px rgba(31, 55, 72, 0.09);
+        }
+
+        .phone-header {
+            background: linear-gradient(135deg, #f28a2e, #e97818);
+        }
+
+        .badge-safesend {
+            border: 1px solid rgba(255, 255, 255, 0.25);
+        }
+
+        .balance-card {
+            border-color: #f5dfc8;
+            box-shadow: 0 8px 22px rgba(31, 55, 72, 0.07);
+        }
+
+        .section-title {
+            letter-spacing: -0.025em;
+        }
+
+        .section-subtitle {
+            line-height: 1.65;
+        }
+
+        .presets-box {
+            background: #f8faf9;
+            border-color: #dce8e2;
+            border-style: solid;
+            border-radius: 14px;
+            padding: 14px;
+        }
+
+        .presets-title {
+            color: #536575;
+            font-size: 12px;
+            letter-spacing: 0.025em;
+        }
+
+        .preset-btn {
+            min-height: 62px;
+            border-color: #e4eaf0;
+            border-radius: 10px;
+            line-height: 1.4;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        select {
+            color: var(--text-main);
+        }
+
+        input[type="text"],
+        input[type="number"] {
+            min-height: 48px;
+            background: #fff;
+        }
+
+        .simulation-options {
+            border-color: #f2dfcb;
+            border-radius: 12px;
+            line-height: 1.5;
+        }
+
+        .sim-checkbox {
+            line-height: 1.45;
+        }
+
+        .submit-btn {
+            min-height: 52px;
+            border-radius: 12px;
+        }
+
+        .guardian-note {
+            border-color: #e4eaee;
+            border-radius: 14px;
+            line-height: 1.6;
+        }
+
+        .receipt-card {
+            border: 1px solid #e8edf0;
+            border-radius: 14px;
+        }
+
+        .modal-content {
+            border-radius: 22px;
+            box-shadow: 0 20px 60px rgba(16, 36, 55, 0.2);
+        }
+
+        .nav-link,
+        .preset-btn,
+        .submit-btn,
+        .filter-btn {
+            transition: background 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s, transform 0.2s;
+        }
+
+        :focus-visible {
+            outline: 3px solid rgba(233, 120, 24, 0.38);
+            outline-offset: 2px;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                scroll-behavior: auto !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        body {
+            font-size: 16px;
+        }
+
+        .top-nav {
+            font-size: 16px;
+        }
+
+        .top-nav .nav-link,
+        .lang-btn {
+            font-size: 15px;
+        }
+
+        .phone-header h1 {
+            font-size: 25px;
+        }
+
+        .badge-safesend {
+            font-size: 13px;
+        }
+
+        .user-chip,
+        .section-subtitle,
+        .balance-card .label,
+        .presets-title,
+        .preset-btn,
+        label,
+        .sim-checkbox,
+        .simulation-options,
+        .submit-btn,
+        .guardian-note,
+        .receipt-card {
+            font-size: 16px;
+        }
+
+        .balance-card .tag {
+            font-size: 13px;
+        }
+
+        .section-title {
+            font-size: 22px;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        select {
+            font-size: 17px;
+        }
+
+        .presets-title {
+            font-weight: 700;
+        }
+
+        .preset-btn span.badge-p {
+            font-size: 14px;
+        }
+
+        .simulation-options > div[style*="font-size:11px"],
+        .simulation-options select {
+            font-size: 14px !important;
+        }
+
+        .modal-content h2 {
+            font-size: 23px !important;
+        }
+
+        .modal-content p,
+        .receipt-row {
+            font-size: 15px !important;
+        }
     </style>
 </head>
 <body>
@@ -483,27 +841,27 @@
                     <div class="label" data-i18n="balance_label">Available Balance</div>
                     <div class="amount" id="userBalance">৳45,600.00</div>
                 </div>
-                <div class="tag">ACTIVE</div>
+                <div class="tag" data-i18n="account_status">READY</div>
             </div>
 
             <!-- Content -->
             <div class="content">
                 <div class="section-title" data-i18n="send_title">Send Money</div>
                 <div class="section-subtitle" data-i18n="send_subtitle">
-                    Enter recipient and amount. SafeSend AI will screen the transfer for fraud and scam risk before completion.
+                    Enter who you’re sending money to and how much. We’ll take a quick look at the transfer before it goes through.
                 </div>
 
                 <!-- Presets for Judges -->
                 <div class="presets-box">
-                    <div class="presets-title" data-i18n="presets_title">⚡ 1-Click Judge Demo Scenarios</div>
+                    <div class="presets-title" data-i18n="presets_title">Try an example</div>
                     <div class="preset-buttons">
                         <button type="button" class="preset-btn preset-safe" onclick="applyPreset('safe')">
-                            <span class="badge-p" style="color:var(--upay-green);" data-i18n="preset_safe_badge">🟢 NORMAL TRANSFER</span>
-                            <span>৳1,500 • Known No.</span>
+                            <span class="badge-p" style="color:var(--upay-green);" data-i18n="preset_safe_badge">🟢 Familiar recipient</span>
+                            <span data-i18n="preset_safe_desc">৳1,500 • A usual transfer</span>
                         </button>
                         <button type="button" class="preset-btn preset-high" onclick="applyPreset('high')">
-                            <span class="badge-p" style="color:var(--upay-red);" data-i18n="preset_high_badge">🚨 3 AM SCAM / TAKEOVER</span>
-                            <span>৳38,500 • Unfamiliar No.</span>
+                            <span class="badge-p" style="color:var(--upay-red);" data-i18n="preset_high_badge">⚠️ New recipient, late at night</span>
+                            <span data-i18n="preset_high_desc">৳38,500 • An unusual transfer</span>
                         </button>
                     </div>
                 </div>
@@ -511,52 +869,52 @@
                 <!-- Form -->
                 <form id="sendForm">
                     <div class="form-group">
-                        <label for="recipient" data-i18n="lbl_recipient">Recipient Number / ID</label>
-                        <input type="text" id="recipient" placeholder="e.g. 01711223344 or R0101" required value="01711223344">
+                        <label for="recipient" data-i18n="lbl_recipient">Who are you sending money to?</label>
+                        <input type="text" id="recipient" placeholder="e.g. 01711223344 or R0101" required>
                     </div>
 
                     <div class="form-group">
-                        <label for="amount" data-i18n="lbl_amount">Amount</label>
+                        <label for="amount" data-i18n="lbl_amount">How much would you like to send?</label>
                         <div class="currency-input">
                             <span class="currency-sign">৳</span>
-                            <input type="number" id="amount" min="1" step="any" placeholder="0" required value="1500">
+                            <input type="number" id="amount" min="1" step="any" required>
                         </div>
                     </div>
 
                     <!-- Hidden or toggleable simulation options -->
                     <div class="simulation-options">
-                        <div style="font-weight:700; color:var(--upay-dark);" data-i18n="sim_header">Environment Signals (Simulated)</div>
+                        <div style="font-weight:700; color:var(--upay-dark);" data-i18n="sim_header">A few details for this example</div>
                         <label class="sim-checkbox">
                             <input type="checkbox" id="device_changed">
-                            <span data-i18n="chk_device">New / Unfamiliar Device Detected</span>
+                            <span data-i18n="chk_device">This is a new or unfamiliar device</span>
                         </label>
                         <label class="sim-checkbox">
                             <input type="checkbox" id="location_changed">
-                            <span data-i18n="chk_location">Unusual Geolocation Shift</span>
+                            <span data-i18n="chk_location">This is an unusual location</span>
                         </label>
                         <div style="margin-top:6px; font-size:11px; color:#9a3412;">
-                            <span data-i18n="sim_hour_note">Simulated Hour: </span>
+                            <span data-i18n="sim_hour_note">Choose a time: </span>
                             <select id="sim_hour" style="font-size:11px; padding:2px 4px; border-radius:4px; border:1px solid #fdba74;">
-                                <option value="" selected>Current Local Time</option>
-                                <option value="3">3:00 AM (Late Night Risk)</option>
-                                <option value="14">2:00 PM (Normal Daytime)</option>
+                                <option value="" selected data-i18n="time_current">Current time</option>
+                                <option value="3" data-i18n="time_late">3:00 AM (late night)</option>
+                                <option value="14" data-i18n="time_day">2:00 PM (afternoon)</option>
                             </select>
                         </div>
                     </div>
 
                     <button type="submit" class="submit-btn" id="continueBtn">
-                        🛡️ <span data-i18n="btn_check">SafeSend Screen & Continue</span>
+                        🛡️ <span data-i18n="btn_check">Check and continue</span>
                     </button>
                 </form>
 
                 <div class="loader-bar" id="loader">
-                    ⚙️ <span data-i18n="loader_text">SafeSend AI analyzing 9 behavioral features & anomaly scores...</span>
+                    ⚙️ <span data-i18n="loader_text">SafeSend is checking this transfer...</span>
                 </div>
 
                 <div class="guardian-note">
                     <div class="icon">🛡️</div>
                     <div data-i18n="guardian_desc">
-                        SafeSend evaluates your historical spending patterns, recipient novelty, velocity, and device signals in milliseconds using XGBoost, Isolation Forest, and SHAP.
+                        SafeSend checks whether this transfer looks familiar to you, including the amount, recipient and device, before it goes through.
                     </div>
                 </div>
             </div>
@@ -568,7 +926,7 @@
         <div class="modal-content">
             <div class="success-icon">✓</div>
             <h2 style="font-size:20px; color:var(--upay-dark); margin-bottom:4px;" data-i18n="modal_success_title">Transaction Successful!</h2>
-            <p style="font-size:13px; color:var(--text-muted);" data-i18n="modal_success_sub">SafeSend verified normal activity. No risk detected.</p>
+            <p style="font-size:13px; color:var(--text-muted);" data-i18n="modal_success_sub">This transfer looked familiar, so it went through.</p>
             
             <div class="receipt-card">
                 <div class="receipt-row">
@@ -601,27 +959,33 @@
                 nav_sim: "AI Simulator",
                 nav_analyst: "Analyst Portal",
                 user_id: "User",
+                account_status: "READY",
                 balance_label: "Available Balance",
                 send_title: "Send Money",
-                send_subtitle: "Enter recipient and amount. SafeSend AI will screen the transfer for fraud and scam risk before completion.",
-                presets_title: "⚡ 1-Click Judge Demo Scenarios",
-                preset_safe_badge: "🟢 NORMAL TRANSFER",
-                preset_high_badge: "🚨 3 AM SCAM / TAKEOVER",
-                lbl_recipient: "Recipient Number / ID",
-                lbl_amount: "Amount",
-                sim_header: "Environment Signals (Simulated)",
-                chk_device: "New / Unfamiliar Device Detected",
-                chk_location: "Unusual Geolocation Shift",
-                sim_hour_note: "Simulated Hour: ",
-                btn_check: "SafeSend Screen & Continue",
-                loader_text: "SafeSend AI analyzing 9 behavioral features & anomaly scores...",
-                guardian_desc: "SafeSend evaluates your historical spending patterns, recipient novelty, velocity, and device signals in milliseconds using XGBoost, Isolation Forest, and SHAP.",
+                send_subtitle: "Enter who you’re sending money to and how much. We’ll take a quick look at the transfer before it goes through.",
+                presets_title: "Try an example",
+                preset_safe_badge: "🟢 Familiar recipient",
+                preset_high_badge: "⚠️ New recipient, late at night",
+                preset_safe_desc: "৳1,500 • A usual transfer",
+                preset_high_desc: "৳38,500 • An unusual transfer",
+                lbl_recipient: "Who are you sending money to?",
+                lbl_amount: "How much would you like to send?",
+                sim_header: "A few details for this example",
+                chk_device: "This is a new or unfamiliar device",
+                chk_location: "This is an unusual location",
+                sim_hour_note: "Choose a time: ",
+                time_current: "Current time",
+                time_late: "3:00 AM (late night)",
+                time_day: "2:00 PM (afternoon)",
+                btn_check: "Check and continue",
+                loader_text: "SafeSend is checking this transfer...",
+                guardian_desc: "SafeSend checks whether this transfer looks familiar to you, including the amount, recipient and device, before it goes through.",
                 modal_success_title: "Transaction Successful!",
-                modal_success_sub: "SafeSend verified normal activity. No risk detected.",
+                modal_success_sub: "This transfer looked familiar, so it went through.",
                 rcpt_txnid: "Transaction ID",
                 rcpt_recipient: "Recipient",
                 rcpt_amount: "Amount",
-                rcpt_risk: "SafeSend Score",
+                rcpt_risk: "Transfer check",
                 btn_done: "Done"
             },
             bn: {
@@ -629,27 +993,33 @@
                 nav_sim: "এআই সিমুলেটর",
                 nav_analyst: "অ্যানালিস্ট পোর্টাল",
                 user_id: "ব্যবহারকারী",
+                account_status: "সচল",
                 balance_label: "বর্তমান ব্যালেন্স",
                 send_title: "টাকা পাঠান (Send Money)",
-                send_subtitle: "প্রাপকের নম্বর ও টাকার পরিমাণ দিন। সেফসেন্ড এআই লেনদেন সম্পন্ন হওয়ার আগেই প্রতারণা ও ঝুঁকি যাচাই করবে।",
-                presets_title: "⚡ বিচারকদের জন্য এক ক্লিকে ডেমো",
-                preset_safe_badge: "🟢 স্বাভাবিক লেনদেন",
-                preset_high_badge: "🚨 রাত ৩টায় বড় জালিয়াতি",
-                lbl_recipient: "প্রাপকের নম্বর / আইডি",
-                lbl_amount: "টাকার পরিমাণ",
-                sim_header: "পরিবেশ সংকেত (সিমুলেশন)",
-                chk_device: "অপরিচিত বা নতুন ডিভাইস শনাক্ত হয়েছে",
-                chk_location: "স্বাভাবিক অবস্থানের বাইরে লেনদেন",
-                sim_hour_note: "সিমুলেটেড সময়: ",
-                btn_check: "সেফসেন্ড যাচাই করে এগিয়ে যান",
-                loader_text: "সেফসেন্ড এআই আচরণগত ফিচার এবং অ্যানোমালি স্কোর বিশ্লেষণ করছে...",
-                guardian_desc: "সেফসেন্ড আপনার অতীতের খরচের অভ্যাস, প্রাপকের পরিচয়, গতিবেগ এবং ডিভাইস তথ্য এক্সজিবুস্ট ও আইসোলেশন ফরেস্টের মাধ্যমে মিলি-সেকেন্ডে যাচাই করে।",
+                send_subtitle: "কাকে কত টাকা পাঠাতে চান তা লিখুন। টাকা পাঠানোর আগে আমরা লেনদেনটি একবার যাচাই করব।",
+                presets_title: "একটি উদাহরণ চেষ্টা করুন",
+                preset_safe_badge: "🟢 পরিচিত প্রাপক",
+                preset_high_badge: "⚠️ রাতে নতুন প্রাপক",
+                preset_safe_desc: "৳১,৫০০ • সাধারণ লেনদেন",
+                preset_high_desc: "৳৩৮,৫০০ • অস্বাভাবিক লেনদেন",
+                lbl_recipient: "কাকে টাকা পাঠাবেন?",
+                lbl_amount: "কত টাকা পাঠাতে চান?",
+                sim_header: "এই উদাহরণের কিছু তথ্য",
+                chk_device: "ডিভাইসটি নতুন বা অপরিচিত",
+                chk_location: "অবস্থানটি অস্বাভাবিক",
+                sim_hour_note: "সময় বেছে নিন: ",
+                time_current: "বর্তমান সময়",
+                time_late: "রাত ৩টা",
+                time_day: "দুপুর ২টা",
+                btn_check: "যাচাই করে এগিয়ে যান",
+                loader_text: "সেফসেন্ড লেনদেনটি যাচাই করছে...",
+                guardian_desc: "টাকা পাঠানোর আগে সেফসেন্ড দেখে নেয়—পরিমাণ, প্রাপক ও ডিভাইসটি আপনার কাছে পরিচিত কি না।",
                 modal_success_title: "লেনদেন সফল হয়েছে!",
-                modal_success_sub: "সেফসেন্ড কোনো ঝুঁকি খুঁজে পায়নি। লেনদেন নিরাপদ।",
+                modal_success_sub: "লেনদেনটি আপনার স্বাভাবিক লেনদেনের মতো ছিল, তাই পাঠানো হয়েছে।",
                 rcpt_txnid: "লেনদেন আইডি",
                 rcpt_recipient: "প্রাপক",
                 rcpt_amount: "পরিমাণ",
-                rcpt_risk: "ঝুঁকির মাত্রা",
+                rcpt_risk: "যাচাইয়ের ফল",
                 btn_done: "ঠিক আছে"
             }
         };

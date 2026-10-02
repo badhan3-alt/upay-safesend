@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SafeSend AI Engine Lab & Simulator - upay</title>
+    <title>SafeSend - Transaction simulator</title>
     <style>
         :root {
             --upay-orange: #f58220;
@@ -121,7 +121,7 @@
             gap: 24px;
         }
 
-        @media (max-width: 900px) {
+        @media (max-width: 800px) {
             .grid { grid-template-columns: 1fr; }
         }
 
@@ -331,6 +331,308 @@
             letter-spacing: 0.5px;
             margin-bottom: 4px;
         }
+
+        @media (max-width: 900px) {
+            .top-nav {
+                flex-wrap: wrap;
+                gap: 10px;
+                padding: 12px 18px;
+            }
+
+            .top-nav .nav-links {
+                flex-wrap: wrap;
+                gap: 6px;
+            }
+
+            .container {
+                margin: 20px auto;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .top-nav {
+                align-items: flex-start;
+                padding: 12px;
+            }
+
+            .top-nav .brand-title,
+            .top-nav .nav-links {
+                width: 100%;
+            }
+
+            .top-nav .nav-links {
+                justify-content: space-between;
+            }
+
+            .top-nav .nav-link {
+                padding: 6px 4px;
+                font-size: 12px;
+            }
+
+            .lang-btn {
+                min-height: 36px;
+            }
+
+            .container {
+                margin: 16px auto;
+                padding: 0 12px;
+            }
+
+            .hero-banner {
+                align-items: flex-start;
+                flex-direction: column;
+                gap: 14px;
+                padding: 18px;
+            }
+
+            .hero-banner h1 {
+                font-size: 21px;
+                overflow-wrap: anywhere;
+            }
+
+            .hero-banner p {
+                line-height: 1.5;
+            }
+
+            .grid {
+                gap: 16px;
+            }
+
+            .card {
+                padding: 18px;
+            }
+
+            .preset-strip {
+                grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+                gap: 0;
+            }
+
+            .model-badges {
+                flex-wrap: wrap;
+            }
+
+            .shap-meta {
+                gap: 10px;
+            }
+
+            .shap-meta span {
+                min-width: 0;
+                overflow-wrap: anywhere;
+            }
+        }
+
+        @media (max-width: 360px) {
+            .top-nav .nav-links {
+                justify-content: flex-start;
+                gap: 2px;
+            }
+
+            .top-nav .nav-link {
+                font-size: 11px;
+            }
+
+            .card {
+                padding: 14px;
+            }
+        }
+
+        :root {
+            --upay-orange: #e97818;
+            --upay-dark: #17314d;
+            --upay-navy: #24435f;
+            --upay-light: #fff6eb;
+            --text-main: #263746;
+            --text-muted: #687987;
+            --border-color: #e7edf1;
+        }
+
+        body {
+            background: #f5f7f8;
+            line-height: 1.55;
+        }
+
+        .top-nav {
+            background: #fff;
+            color: var(--upay-dark);
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: 0 3px 14px rgba(23, 49, 77, 0.04);
+        }
+
+        .top-nav .nav-link {
+            color: #536575;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .top-nav .nav-link:hover,
+        .top-nav .nav-link.active {
+            color: var(--upay-dark);
+            background: #fff4e7;
+            border-color: #f4c99f;
+        }
+
+        .lang-btn {
+            border-color: #d6dfe5;
+            color: var(--upay-dark);
+            min-height: 36px;
+            padding: 6px 12px;
+            border-radius: 10px;
+        }
+
+        .hero-banner,
+        .card {
+            border-color: #e8edf0;
+            border-radius: 20px;
+            box-shadow: 0 10px 28px rgba(31, 55, 72, 0.055);
+        }
+
+        .hero-banner {
+            background: linear-gradient(120deg, #fff 55%, #fff8f0);
+        }
+
+        .hero-banner h1,
+        .card-title {
+            letter-spacing: -0.025em;
+            line-height: 1.3;
+        }
+
+        .hero-banner p {
+            line-height: 1.65;
+        }
+
+        .preset-pill,
+        .model-badge {
+            border-color: #e4eaf0;
+            border-radius: 10px;
+        }
+
+        .preset-pill {
+            min-height: 42px;
+            color: #405466;
+        }
+
+        input[type="number"] {
+            min-height: 46px;
+            border-color: #dce4e9;
+            border-radius: 10px;
+            color: var(--text-main);
+        }
+
+        input[type="number"]:focus {
+            outline: 3px solid rgba(233, 120, 24, 0.14);
+            border-color: var(--upay-orange);
+        }
+
+        .checkbox-group {
+            border-color: #e7edf1;
+            border-radius: 12px;
+        }
+
+        .checkbox-label {
+            line-height: 1.45;
+        }
+
+        .btn-analyze {
+            min-height: 50px;
+            border-radius: 12px;
+            background: var(--upay-orange);
+        }
+
+        .btn-analyze:hover {
+            background: #d86710;
+        }
+
+        .risk-display-header {
+            border-radius: 16px;
+            padding: 24px 18px;
+        }
+
+        .qa-box {
+            background: #f7f9fa;
+            border-radius: 12px;
+            padding: 14px 16px;
+            line-height: 1.6;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                scroll-behavior: auto !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        body {
+            font-size: 16px;
+        }
+
+        .top-nav {
+            font-size: 16px;
+        }
+
+        .top-nav .nav-link,
+        .lang-btn {
+            font-size: 15px;
+        }
+
+        .hero-banner h1 {
+            font-size: clamp(25px, 3vw, 32px);
+        }
+
+        .hero-banner p,
+        .qa-box,
+        .checkbox-label,
+        label {
+            font-size: 16px;
+        }
+
+        .hero-banner [data-i18n="hero_badge"] {
+            font-size: 14px;
+        }
+
+        .card-title {
+            font-size: 20px;
+        }
+
+        .preset-pill,
+        input[type="number"],
+        .btn-analyze,
+        .model-badge {
+            font-size: 16px;
+        }
+
+        .risk-display-header [data-i18n="score_lbl"] {
+            font-size: 14px !important;
+        }
+
+        .model-badges {
+            font-size: 14px;
+        }
+
+        .qa-box strong {
+            font-size: 15px;
+        }
+
+        #shapOutput {
+            font-size: 14px;
+        }
+
+        .risk-display-header,
+        .risk-display-header.HIGH,
+        .risk-display-header.MEDIUM,
+        .risk-display-header.LOW {
+            background: #f8fafb;
+            border: 1px solid #e7edf1;
+        }
+
+        .level-tag {
+            background: #eef2f5;
+            color: #536575;
+        }
     </style>
 </head>
 <body>
@@ -338,7 +640,7 @@
     <!-- Top Nav -->
     <nav class="top-nav">
         <div class="brand-title">
-            <span>upay</span> SafeSend AI Engine Lab
+            <span>upay</span> <span data-i18n="brand_title">SafeSend payment check</span>
         </div>
         <div class="nav-links">
             <a href="/" class="nav-link">📱 <span data-i18n="nav_wallet">Wallet</span></a>
@@ -352,11 +654,11 @@
         <!-- Hero Banner -->
         <div class="hero-banner">
             <div>
-                <h1 data-i18n="hero_title">SafeSend Risk Simulator & SHAP Visualizer</h1>
-                <p data-i18n="hero_sub">Experiment with behavioral parameters to see real-time XGBoost probabilities, Isolation Forest anomaly alerts, and SHAP feature attributions.</p>
+                <h1 data-i18n="hero_title">See how SafeSend helps keep transfers safer</h1>
+                <p data-i18n="hero_sub">Try a few transaction details and see what might make a payment need a closer look.</p>
             </div>
             <div style="font-size:12px; background:var(--upay-light); border:1px solid #fed7aa; color:var(--upay-orange); padding:8px 12px; border-radius:8px; font-weight:700;">
-                DIU-CPC × upay Hackathon 2026
+                <span data-i18n="hero_badge">Payment safety, made clearer</span>
             </div>
         </div>
 
@@ -364,19 +666,19 @@
             <!-- Left: Controls -->
             <div class="card">
                 <div class="card-title">
-                    <span>🎛️</span> <span data-i18n="params_title">Transaction Parameters</span>
+                    <span>🎛️</span> <span data-i18n="params_title">Try a transaction</span>
                 </div>
 
                 <!-- Presets -->
                 <div class="preset-strip">
                     <button class="preset-pill" onclick="loadScenario('normal')">
-                        🟢 <span data-i18n="pill_normal">Normal Profile</span>
+                        🟢 <span data-i18n="pill_normal">Everyday transfer</span>
                     </button>
                     <button class="preset-pill" onclick="loadScenario('scam')">
-                        🚨 <span data-i18n="pill_scam">3 AM Scam</span>
+                        ⚠️ <span data-i18n="pill_scam">Unusual late-night transfer</span>
                     </button>
                     <button class="preset-pill" onclick="loadScenario('velocity')">
-                        ⚡ <span data-i18n="pill_velocity">Velocity Surge</span>
+                        ⚡ <span data-i18n="pill_velocity">Several transfers in a row</span>
                     </button>
                 </div>
 
@@ -384,47 +686,47 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label for="amount" data-i18n="lbl_amount">Amount (৳)</label>
-                            <input type="number" id="amount" value="1500" required>
+                            <input type="number" id="amount" required>
                         </div>
                         <div class="form-group">
-                            <label for="avg_amount" data-i18n="lbl_avg_amount">Normal Average (৳)</label>
-                            <input type="number" id="avg_amount" value="2500" required>
+                            <label for="avg_amount" data-i18n="lbl_avg_amount">Your usual transfer amount (৳)</label>
+                            <input type="number" id="avg_amount" required>
                         </div>
                     </div>
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="hour" data-i18n="lbl_hour">Transaction Hour (0-23)</label>
-                            <input type="number" id="hour" min="0" max="23" value="14" required>
+                            <label for="hour" data-i18n="lbl_hour">Time of transfer (0–23)</label>
+                            <input type="number" id="hour" min="0" max="23" required>
                         </div>
                         <div class="form-group">
-                            <label for="tx_1h" data-i18n="lbl_tx_1h">Transfers in Last 1 Hour</label>
-                            <input type="number" id="tx_1h" min="0" value="1" required>
+                            <label for="tx_1h" data-i18n="lbl_tx_1h">Transfers in the past hour</label>
+                            <input type="number" id="tx_1h" min="0" required>
                         </div>
                     </div>
 
                     <div class="form-group">
-                        <label for="acc_age" data-i18n="lbl_acc_age">Account Age (Days)</label>
-                        <input type="number" id="acc_age" min="1" value="240" required>
+                        <label for="acc_age" data-i18n="lbl_acc_age">How long the account has been open (days)</label>
+                        <input type="number" id="acc_age" min="1" required>
                     </div>
 
                     <div class="checkbox-group">
                         <label class="checkbox-label">
                             <input type="checkbox" id="recipient_new">
-                            <span data-i18n="chk_new_rec">New Recipient (First-time interaction)</span>
+                            <span data-i18n="chk_new_rec">This is a new recipient</span>
                         </label>
                         <label class="checkbox-label">
                             <input type="checkbox" id="device_changed">
-                            <span data-i18n="chk_new_dev">Device Changed (Unrecognized IMEI/Browser)</span>
+                            <span data-i18n="chk_new_dev">This is a new or unrecognized device</span>
                         </label>
                         <label class="checkbox-label">
                             <input type="checkbox" id="location_changed">
-                            <span data-i18n="chk_new_loc">Location Changed (Geo-distance anomaly)</span>
+                            <span data-i18n="chk_new_loc">This is an unusual location</span>
                         </label>
                     </div>
 
                     <button type="submit" class="btn-analyze" id="analyzeBtn" data-i18n="btn_run">
-                        ⚡ Compute SafeSend Risk & Explainability
+                        Check this example
                     </button>
                 </form>
             </div>
@@ -432,39 +734,39 @@
             <!-- Right: Results -->
             <div class="card" id="resultsCard">
                 <div class="card-title">
-                    <span>📊</span> <span data-i18n="analysis_title">AI Risk & Explainability Output</span>
+                    <span>📊</span> <span data-i18n="analysis_title">What SafeSend noticed</span>
                 </div>
 
                 <div class="risk-display-header LOW" id="scoreHeader">
-                    <div style="font-size:12px; font-weight:700; color:#64748b;" data-i18n="score_lbl">COMBINED RISK SCORE</div>
-                    <div class="score-val LOW" id="scoreVal">6.5%</div>
-                    <div class="level-tag LOW" id="levelTag">LOW RISK</div>
+                    <div style="font-size:12px; font-weight:700; color:#64748b;" data-i18n="score_lbl">Estimated risk for this transfer</div>
+                    <div class="score-val LOW" id="scoreVal">--</div>
+                    <div class="level-tag LOW" id="levelTag" data-i18n="result_waiting">Waiting for details</div>
                     
                     <div class="model-badges">
-                        <div class="model-badge">XGBoost: <strong id="xgbVal">4.2%</strong></div>
-                        <div class="model-badge">Isolation Forest: <strong id="ifVal">Normal</strong></div>
+                        <div class="model-badge"><span data-i18n="model_estimate">Risk estimate</span>: <strong id="xgbVal">--</strong></div>
+                        <div class="model-badge"><span data-i18n="activity_check">Activity check</span>: <strong id="ifVal">--</strong></div>
                     </div>
                 </div>
 
                 <!-- Three Key Hackathon Questions -->
                 <div style="margin-bottom:18px;">
                     <div class="qa-box">
-                        <strong data-i18n="q1_title">1. What happened?</strong>
-                        <div id="dispWhatHappened">--</div>
+                        <strong data-i18n="q1_title">What happened</strong>
+                        <div id="dispWhatHappened" data-i18n="result_empty">Enter the details and check your example to see the result.</div>
                     </div>
                     <div class="qa-box">
-                        <strong data-i18n="q2_title">2. Why is it risky?</strong>
-                        <div id="dispWhyRisky">--</div>
+                        <strong data-i18n="q2_title">What may need attention?</strong>
+                        <div id="dispWhyRisky"></div>
                     </div>
                     <div class="qa-box">
-                        <strong data-i18n="q3_title">3. What should upay do next?</strong>
-                        <div id="dispWhatNext">--</div>
+                        <strong data-i18n="q3_title">What could you do next?</strong>
+                        <div id="dispWhatNext"></div>
                     </div>
                 </div>
 
                 <!-- SHAP Explainability -->
                 <div class="card-title" style="font-size:15px; margin-bottom:10px;">
-                    <span>🧠</span> <span data-i18n="shap_heading">Top SHAP Feature Attributions</span>
+                    <span>🧠</span> <span data-i18n="shap_heading">What influenced this result?</span>
                 </div>
                 <div id="shapOutput"></div>
             </div>
@@ -477,53 +779,71 @@
                 nav_wallet: "Wallet",
                 nav_sim: "Simulator",
                 nav_analyst: "Analyst",
-                hero_title: "SafeSend Risk Simulator & SHAP Visualizer",
-                hero_sub: "Experiment with behavioral parameters to see real-time XGBoost probabilities, Isolation Forest anomaly alerts, and SHAP feature attributions.",
-                params_title: "Transaction Parameters",
-                pill_normal: "Normal Profile",
-                pill_scam: "3 AM Scam",
-                pill_velocity: "Velocity Surge",
+                brand_title: "SafeSend payment check",
+                hero_badge: "Payment safety, made clearer",
+                hero_title: "See how SafeSend helps keep transfers safer",
+                hero_sub: "Try a few transaction details and see what might make a payment need a closer look.",
+                params_title: "Try a transaction",
+                pill_normal: "Everyday transfer",
+                pill_scam: "Unusual late-night transfer",
+                pill_velocity: "Several transfers in a row",
+                result_waiting: "Waiting for details",
+                result_empty: "Enter the details and check your example to see the result.",
                 lbl_amount: "Amount (৳)",
-                lbl_avg_amount: "Normal Average (৳)",
-                lbl_hour: "Transaction Hour (0-23)",
-                lbl_tx_1h: "Transfers in Last 1 Hour",
-                lbl_acc_age: "Account Age (Days)",
-                chk_new_rec: "New Recipient (First-time interaction)",
-                chk_new_dev: "Device Changed (Unrecognized IMEI/Browser)",
-                chk_new_loc: "Location Changed (Geo-distance anomaly)",
-                btn_run: "⚡ Compute SafeSend Risk & Explainability",
-                analysis_title: "AI Risk & Explainability Output",
-                score_lbl: "COMBINED RISK SCORE",
-                q1_title: "1. What happened?",
-                q2_title: "2. Why is it risky?",
-                q3_title: "3. What should upay do next?",
-                shap_heading: "Top SHAP Feature Attributions"
+                lbl_avg_amount: "Your usual transfer amount (৳)",
+                lbl_hour: "Time of transfer (0–23)",
+                lbl_tx_1h: "Transfers in the past hour",
+                lbl_acc_age: "How long the account has been open (days)",
+                chk_new_rec: "This is a new recipient",
+                chk_new_dev: "This is a new or unrecognized device",
+                chk_new_loc: "This is an unusual location",
+                btn_run: "Check this example",
+                analysis_title: "What SafeSend noticed",
+                score_lbl: "Estimated risk for this transfer",
+                model_estimate: "Risk estimate",
+                activity_check: "Activity check",
+                risk_high: "Needs attention",
+                risk_medium: "Worth a second look",
+                risk_low: "Looks familiar",
+                q1_title: "What happened",
+                q2_title: "What may need attention?",
+                q3_title: "What could you do next?",
+                shap_heading: "What influenced this result?"
             },
             bn: {
                 nav_wallet: "ওয়ালেট",
                 nav_sim: "সিমুলেটর",
                 nav_analyst: "অ্যানালিস্ট",
-                hero_title: "সেফসেন্ড এআই সিমুলেটর ও SHAP ব্যাখ্যা",
-                hero_sub: "লেনদেনের আচরণগত মান পরিবর্তন করে এক্সজিবুস্ট স্কোর, আইসোলেশন ফরেস্ট অ্যানোমালি এবং SHAP কারণ বিশ্লেষণ তাৎক্ষণিক পরীক্ষা করুন।",
-                params_title: "লেনদেনের প্যারামিটারসমূহ",
+                brand_title: "সেফসেন্ড নিরাপত্তা যাচাই",
+                hero_badge: "লেনদেনে আরও নিশ্চিন্ত থাকুন",
+                hero_title: "নিরাপদ লেনদেনে সেফসেন্ড কীভাবে সাহায্য করে দেখুন",
+                hero_sub: "লেনদেনের কিছু তথ্য দিয়ে দেখুন, কোন কারণে পেমেন্টটি আরেকবার যাচাই করা হতে পারে।",
+                params_title: "একটি লেনদেন চেষ্টা করুন",
                 pill_normal: "স্বাভাবিক লেনদেন",
-                pill_scam: "রাত ৩টায় প্রতারণা",
-                pill_velocity: "ঘন ঘন লেনদেন",
+                pill_scam: "রাতে অস্বাভাবিক লেনদেন",
+                pill_velocity: "পরপর কয়েকটি লেনদেন",
+                result_waiting: "তথ্যের অপেক্ষায়",
+                result_empty: "তথ্য লিখে উদাহরণটি যাচাই করলে ফলাফল এখানে দেখা যাবে।",
                 lbl_amount: "পরিমাণ (৳)",
-                lbl_avg_amount: "স্বাভাবিক গড় (৳)",
-                lbl_hour: "লেনদেনের সময় (০-২৩ ঘণ্টা)",
-                lbl_tx_1h: "গত ১ ঘণ্টায় লেনদেনের সংখ্যা",
-                lbl_acc_age: "অ্যাকাউন্টের বয়স (দিন)",
-                chk_new_rec: "নতুন প্রাপক (প্রথমবার পাঠানো হচ্ছে)",
-                chk_new_dev: "ডিভাইস পরিবর্তন (নতুন ডিভাইস শনাক্ত)",
-                chk_new_loc: "অবস্থান পরিবর্তন (অস্বাভাবিক দূরত্ব)",
-                btn_run: "⚡ সেফসেন্ড ঝুঁকি ও কারণ নির্ণয় করুন",
-                analysis_title: "এআই ঝুঁকি ও বিশ্লেষণ ফলাফল",
-                score_lbl: "সম্মিলিত ঝুঁকির মাত্রা",
-                q1_title: "১. কি ঘটেছে?",
-                q2_title: "২. এটি কেন ঝুঁকিপূর্ণ?",
-                q3_title: "৩. উপায়-এর পরবর্তী করণীয় কি?",
-                shap_heading: "প্রধান প্রভাব বিস্তারকারী উপাদান (SHAP)"
+                lbl_avg_amount: "আপনার সাধারণ লেনদেনের পরিমাণ (৳)",
+                lbl_hour: "লেনদেনের সময় (০–২৩)",
+                lbl_tx_1h: "গত এক ঘণ্টায় লেনদেন",
+                lbl_acc_age: "অ্যাকাউন্ট খোলার পর কেটেছে (দিন)",
+                chk_new_rec: "এই প্রাপক নতুন",
+                chk_new_dev: "ডিভাইসটি নতুন বা অপরিচিত",
+                chk_new_loc: "অবস্থানটি অস্বাভাবিক",
+                btn_run: "এই উদাহরণটি যাচাই করুন",
+                analysis_title: "সেফসেন্ড যা লক্ষ্য করেছে",
+                score_lbl: "এই লেনদেনের সম্ভাব্য ঝুঁকি",
+                model_estimate: "ঝুঁকির হিসাব",
+                activity_check: "লেনদেনের ধরন",
+                risk_high: "বিশেষভাবে যাচাই করুন",
+                risk_medium: "আরেকবার দেখে নিন",
+                risk_low: "পরিচিত লেনদেন",
+                q1_title: "কী ঘটেছে",
+                q2_title: "কোন বিষয়টি খেয়াল করবেন?",
+                q3_title: "এরপর কী করতে পারেন?",
+                shap_heading: "ফলাফলে কী প্রভাব ফেলেছে?"
             }
         };
 
@@ -584,6 +904,11 @@
             const hour = parseInt(document.getElementById("hour").value);
             const tx_1h = parseInt(document.getElementById("tx_1h").value);
             const acc_age = parseInt(document.getElementById("acc_age").value);
+
+            if (![amount, avg_amount, hour, tx_1h, acc_age].every(Number.isFinite)) {
+                return;
+            }
+
             const recipient_new = document.getElementById("recipient_new").checked;
             const device_changed = document.getElementById("device_changed").checked;
             const location_changed = document.getElementById("location_changed").checked;
@@ -616,16 +941,22 @@
                 scoreVal.className = "score-val " + result.risk_level;
 
                 const tag = document.getElementById("levelTag");
-                tag.innerText = result.risk_level + " RISK";
+                const riskLabel = translations[currentLang]["risk_" + result.risk_level.toLowerCase()];
+                tag.innerText = riskLabel || result.risk_level;
                 tag.className = "level-tag " + result.risk_level;
 
                 document.getElementById("xgbVal").innerText = result.xgboost_score + "%";
-                document.getElementById("ifVal").innerText = result.behavioral_anomaly ? "🚨 ANOMALY" : "Normal";
+                document.getElementById("ifVal").innerText = currentLang === "bn"
+                    ? (result.behavioral_anomaly ? "🚨 অস্বাভাবিক" : "স্বাভাবিক")
+                    : (result.behavioral_anomaly ? "Needs a look" : "Looks usual");
 
                 // Update 3 Questions
-                document.getElementById("dispWhatHappened").innerText = result.investigation.what_happened;
-                document.getElementById("dispWhyRisky").innerText = result.investigation.why_risky;
-                document.getElementById("dispWhatNext").innerText = result.investigation.what_upay_should_do;
+                const investigation = currentLang === "bn" && result.investigation_bn
+                    ? result.investigation_bn
+                    : result.investigation;
+                document.getElementById("dispWhatHappened").innerText = investigation.what_happened;
+                document.getElementById("dispWhyRisky").innerText = investigation.why_risky;
+                document.getElementById("dispWhatNext").innerText = investigation.what_upay_should_do;
 
                 // Render SHAP
                 const shapContainer = document.getElementById("shapOutput");
@@ -665,7 +996,6 @@
 
         document.addEventListener("DOMContentLoaded", () => {
             setLanguage(currentLang);
-            runSimulation();
         });
     </script>
 </body>

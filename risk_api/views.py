@@ -158,47 +158,47 @@ def evaluate_transaction_risk(feature_data: dict) -> dict:
     reasons_bn = []
 
     if recipient_new:
-        reasons_en.append("New recipient (first time sending to this account)")
-        reasons_bn.append("নতুন প্রাপক (পূর্বে কখনও এই নম্বরে লেনদেন হয়নি)")
+        reasons_en.append("This is the first time you’re sending money to this recipient")
+        reasons_bn.append("এই প্রাপককে আপনি আগে টাকা পাঠাননি")
 
     if amount_ratio >= 3.0:
         reasons_en.append(
-            f"Amount is {amount_ratio:.1f}× higher than normal user average (৳{avg_amount:,.0f})"
+            f"This amount is {amount_ratio:.1f}× higher than your usual transfer (৳{avg_amount:,.0f})"
         )
         reasons_bn.append(
-            f"স্বাভাবিক গড়ের চেয়ে {amount_ratio:.1f} গুণ বেশি টাকা (স্বাভাবিক: ৳{avg_amount:,.0f})"
+            f"টাকার পরিমাণ আপনার সাধারণ লেনদেনের চেয়ে {amount_ratio:.1f} গুণ বেশি (সাধারণত ৳{avg_amount:,.0f})"
         )
     elif amount_ratio >= 1.8:
-        reasons_en.append("Amount is notably above average spending pattern")
-        reasons_bn.append("টাকার পরিমাণ স্বাভাবিকের চেয়ে কিছুটা বেশি")
+        reasons_en.append("This amount is higher than your usual transfer")
+        reasons_bn.append("টাকার পরিমাণ আপনার সাধারণ লেনদেনের চেয়ে বেশি")
 
     if device_changed:
-        reasons_en.append("Transaction initiated from an unfamiliar or changed device")
-        reasons_bn.append("নতুন বা পরিবর্তিত ডিভাইস থেকে লেনদেন করা হচ্ছে")
+        reasons_en.append("This transfer is coming from a new or changed device")
+        reasons_bn.append("নতুন বা পরিবর্তিত ডিভাইস থেকে এই লেনদেনটি করা হচ্ছে")
 
     if location_changed:
-        reasons_en.append("Transaction originating from an unusual location")
-        reasons_bn.append("স্বাভাবিক ভৌগোলিক এলাকার বাইরে থেকে লেনদেন করা হচ্ছে")
+        reasons_en.append("This transfer is coming from an unusual location")
+        reasons_bn.append("অপরিচিত কোনো স্থান থেকে এই লেনদেনটি করা হচ্ছে")
 
     if tx_last_1h >= 4:
         reasons_en.append(
-            f"High transaction frequency ({tx_last_1h} transactions in the last hour)"
+            f"There have been {tx_last_1h} transfers in the past hour"
         )
         reasons_bn.append(
-            f"অল্প সময়ে উচ্চমাত্রার লেনদেন (গত ১ ঘণ্টায় {tx_last_1h} বার)"
+            f"গত এক ঘণ্টায় {tx_last_1h}টি লেনদেন হয়েছে"
         )
 
     if hour <= 5 or hour >= 23:
-        reasons_en.append(f"Unusual late-night or dawn transaction hour ({hour:02d}:00)")
-        reasons_bn.append(f"অস্বাভাবিক সময়ে লেনদেন (রাত/ভোর {hour:02d}:০০)")
+        reasons_en.append(f"This is an unusual time for a transfer ({hour:02d}:00)")
+        reasons_bn.append(f"এই সময়টি লেনদেনের জন্য অস্বাভাবিক ({hour:02d}:০০)")
 
     if is_anomaly:
-        reasons_en.append("Behavioral Anomaly Engine flagged deviation from normal spending profile")
-        reasons_bn.append("এআই অ্যানোমালি ইঞ্জিন স্বাভাবিক আচরণে অসঙ্গতি শনাক্ত করেছে")
+        reasons_en.append("This transfer looks different from the account’s usual activity")
+        reasons_bn.append("অ্যাকাউন্টটির স্বাভাবিক লেনদেনের ধরন থেকে এটি কিছুটা আলাদা")
 
     if not reasons_en:
-        reasons_en.append("Transaction matches verified activity pattern; no risk anomalies")
-        reasons_bn.append("লেনদেনটি আপনার নিয়মিত ব্যবহারের সাথে পুরোপুরি সংগতিপূর্ণ")
+        reasons_en.append("This transfer looks similar to the account’s usual activity")
+        reasons_bn.append("লেনদেনটি অ্যাকাউন্টটির নিয়মিত ব্যবহারের মতো")
 
     # 6. Lightweight Feature Attribution
     # Keeps the same response structure as the former SHAP output so the
@@ -235,46 +235,54 @@ def evaluate_transaction_risk(feature_data: dict) -> dict:
     # 7. Actionable Recommendations (Good Project Test: What should Upay do next?)
     if risk_level == "HIGH":
         recommendation_en = (
-            "Verify the recipient via phone call before continuing. "
-            "SafeSend recommends not completing this payment if you received an urgent request."
+            "Pause before sending. Call the recipient using a number you trust, especially if someone is pressuring you to act quickly."
         )
         recommendation_bn = (
-            "টাকা পাঠানোর আগে প্রাপককে সরাসরি ফোন করে নিশ্চিত হোন। "
-            "জরুরি অনুরোধ বা অচেনা কারো নির্দেশে টাকা পাঠাবেন না।"
+            "টাকা পাঠানোর আগে একটু থামুন। পরিচিত নম্বরে প্রাপককে ফোন করে নিশ্চিত হোন—বিশেষ করে কেউ তাড়াহুড়ো করতে বললে।"
         )
     elif risk_level == "MEDIUM":
         recommendation_en = (
-            "Review transaction details carefully. Verify the account number and amount before confirmation."
+            "Take a moment to double-check the recipient and amount before you continue."
         )
         recommendation_bn = (
-            "লেনদেনের তথ্য সতর্কতার সাথে যাচাই করুন। নম্বর ও টাকার পরিমাণ সঠিক কি না দেখে নিন।"
+            "এগোনোর আগে প্রাপকের নম্বর ও টাকার পরিমাণ আরেকবার মিলিয়ে নিন।"
         )
     else:
-        recommendation_en = "Transaction appears safe. Ready to proceed with normal confirmation."
-        recommendation_bn = "লেনদেনটি সম্পূর্ণ স্বাভাবিক। আপনি নিরাপদে এগিয়ে যেতে পারেন।"
+        recommendation_en = "Nothing unusual stood out. If the recipient and amount are right, you can continue."
+        recommendation_bn = "অস্বাভাবিক কিছু চোখে পড়েনি। প্রাপক ও টাকার পরিমাণ ঠিক থাকলে এগিয়ে যেতে পারেন।"
 
     # 8. Investigation Narrative (What happened? Why is it risky? What should Upay do next?)
-    user_id = feature_data.get("user_id", "U0001")
     recipient_id = feature_data.get("recipient_id", "R0000")
     what_happened = (
-        f"User {user_id} attempted a transfer of ৳{amount:,.2f} to {recipient_id} at {hour:02d}:00."
+        f"You’re sending ৳{amount:,.2f} to {recipient_id} at {hour:02d}:00."
     )
     if risk_level == "HIGH":
         why_risky = (
-            f"Critical risk indicators detected: amount is {amount_ratio:.1f}× historical baseline, "
-            f"new recipient={bool(recipient_new)}, device changed={bool(device_changed)}, "
-            f"anomaly engine flag={is_anomaly}."
+            "Several details stand out from what’s usual for this account. "
+            "Please review the recipient, amount, and any recent changes before sending."
         )
-        what_to_do = "Intervene before fund transfer. Display SafeSend warning modal and require user re-authentication."
+        what_to_do = "Pause and confirm the recipient through a trusted contact method before deciding whether to continue."
+        why_risky_bn = (
+            "এই লেনদেনের কয়েকটি তথ্য অ্যাকাউন্টটির স্বাভাবিক ব্যবহারের থেকে আলাদা। "
+            "পাঠানোর আগে প্রাপক, পরিমাণ ও সাম্প্রতিক পরিবর্তনগুলো দেখে নিন।"
+        )
+        what_to_do_bn = "একটু থামুন। এগোনোর আগে পরিচিত উপায়ে প্রাপকের সঙ্গে যোগাযোগ করে নিশ্চিত হোন।"
     elif risk_level == "MEDIUM":
         why_risky = (
-            f"Moderate behavioral deviation detected: ratio {amount_ratio:.1f}×, "
-            f"new recipient={bool(recipient_new)}."
+            "A few details are different from what’s usual for this account. "
+            "Check that the recipient and amount are what you intended."
         )
-        what_to_do = "Display soft safety warning. Allow user to proceed after acknowledging the recipient details."
+        what_to_do = "Double-check the recipient and amount. Continue only if both look right."
+        why_risky_bn = (
+            "এই লেনদেনের কিছু তথ্য অ্যাকাউন্টটির স্বাভাবিক ব্যবহারের থেকে আলাদা। "
+            "প্রাপক ও টাকার পরিমাণ আপনার ইচ্ছামতো কি না দেখে নিন।"
+        )
+        what_to_do_bn = "প্রাপক ও টাকার পরিমাণ আরেকবার মিলিয়ে নিন। দুটিই ঠিক থাকলে এগিয়ে যান।"
     else:
-        why_risky = "All behavioral parameters conform to historical baseline."
-        what_to_do = "Approve and process transaction seamlessly with zero friction."
+        why_risky = "This transfer looks similar to the account’s usual activity."
+        what_to_do = "No unusual activity stood out. You can continue if the recipient and amount are correct."
+        why_risky_bn = "লেনদেনটি অ্যাকাউন্টটির নিয়মিত ব্যবহারের মতো মনে হচ্ছে।"
+        what_to_do_bn = "অস্বাভাবিক কিছু চোখে পড়েনি। প্রাপক ও টাকার পরিমাণ ঠিক থাকলে এগিয়ে যেতে পারেন।"
 
     return {
         "risk_score": risk_score,
@@ -302,6 +310,13 @@ def evaluate_transaction_risk(feature_data: dict) -> dict:
             "what_happened": what_happened,
             "why_risky": why_risky,
             "what_upay_should_do": what_to_do,
+        },
+        "investigation_bn": {
+            "what_happened": (
+                f"আপনি {recipient_id}-কে ৳{amount:,.2f} পাঠাচ্ছেন ({hour:02d}:০০)।"
+            ),
+            "why_risky": why_risky_bn,
+            "what_upay_should_do": what_to_do_bn,
         },
     }
 

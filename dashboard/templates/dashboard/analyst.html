@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SafeSend Fraud Operations & Investigation Portal - upay</title>
+    <title>SafeSend - Payments overview</title>
     <style>
         :root {
             --upay-orange: #f58220;
@@ -205,11 +205,13 @@
             border-radius: 16px;
             border: 1px solid #e2e8f0;
             box-shadow: 0 4px 16px rgba(0,0,0,0.04);
-            overflow: hidden;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         table {
             width: 100%;
+            min-width: 900px;
             border-collapse: collapse;
             text-align: left;
             font-size: 13.5px;
@@ -331,6 +333,351 @@
             justify-content: flex-end;
             gap: 10px;
         }
+
+        .header-bar > div,
+        .inv-header > div {
+            min-width: 0;
+        }
+
+        @media (max-width: 900px) {
+            .top-nav {
+                flex-wrap: wrap;
+                gap: 10px;
+                padding: 12px 18px;
+            }
+
+            .top-nav .nav-links {
+                flex-wrap: wrap;
+                gap: 6px;
+            }
+
+            .container {
+                margin: 20px auto;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .top-nav {
+                align-items: flex-start;
+                padding: 12px;
+            }
+
+            .top-nav .brand-title,
+            .top-nav .nav-links {
+                width: 100%;
+            }
+
+            .top-nav .brand-title {
+                line-height: 1.4;
+                overflow-wrap: anywhere;
+            }
+
+            .top-nav .nav-links {
+                justify-content: space-between;
+            }
+
+            .top-nav .nav-link {
+                padding: 6px 4px;
+                font-size: 12px;
+            }
+
+            .container {
+                margin: 16px auto;
+                padding: 0 12px;
+            }
+
+            .header-bar {
+                align-items: flex-start;
+                flex-direction: column;
+                gap: 14px;
+            }
+
+            .header-bar h1 {
+                font-size: 21px;
+                overflow-wrap: anywhere;
+            }
+
+            .header-bar p {
+                line-height: 1.5;
+            }
+
+            .header-bar > div:last-child,
+            .header-bar .filter-btn {
+                width: 100%;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 10px;
+                margin-bottom: 18px;
+            }
+
+            .stat-card {
+                min-width: 0;
+                padding: 14px;
+            }
+
+            .stat-card .val {
+                font-size: 24px;
+                overflow-wrap: anywhere;
+            }
+
+            .controls-card {
+                align-items: stretch;
+                padding: 14px;
+            }
+
+            .filter-tabs {
+                flex-wrap: wrap;
+            }
+
+            .filter-btn {
+                min-height: 36px;
+            }
+
+            .search-box,
+            .search-box input {
+                width: 100%;
+            }
+
+            .search-box input {
+                min-width: 0;
+            }
+
+            .modal-overlay {
+                align-items: flex-start;
+                padding: 12px;
+            }
+
+            .investigation-card {
+                max-height: calc(100vh - 24px);
+                border-radius: 16px;
+            }
+
+            .inv-header {
+                gap: 12px;
+                padding: 16px;
+            }
+
+            .inv-body {
+                padding: 16px;
+            }
+
+            .inv-body > div:first-child {
+                flex-wrap: wrap;
+                gap: 12px;
+            }
+
+            .inv-footer {
+                flex-wrap: wrap;
+                padding: 12px 16px;
+            }
+
+            .inv-footer .filter-btn {
+                flex: 1 1 140px;
+            }
+        }
+
+        @media (max-width: 360px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .top-nav .nav-links {
+                justify-content: flex-start;
+                gap: 2px;
+            }
+
+            .top-nav .nav-link {
+                font-size: 11px;
+            }
+        }
+
+        :root {
+            --upay-orange: #e97818;
+            --upay-dark: #17314d;
+            --upay-navy: #24435f;
+            --upay-light: #fff6eb;
+            --text-main: #263746;
+            --text-muted: #687987;
+            --border-color: #e7edf1;
+        }
+
+        body {
+            background: #f5f7f8;
+            line-height: 1.55;
+        }
+
+        .top-nav {
+            background: #fff;
+            color: var(--upay-dark);
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: 0 3px 14px rgba(23, 49, 77, 0.04);
+        }
+
+        .top-nav .nav-link {
+            color: #536575;
+        }
+
+        .top-nav .nav-link:hover,
+        .top-nav .nav-link.active {
+            color: var(--upay-dark);
+            background: #fff4e7;
+            border-color: #f4c99f;
+        }
+
+        .container {
+            max-width: 1320px;
+        }
+
+        .header-bar h1 {
+            letter-spacing: -0.025em;
+        }
+
+        .stat-card,
+        .controls-card,
+        .table-card {
+            border-color: #e8edf0;
+            box-shadow: 0 10px 28px rgba(31, 55, 72, 0.05);
+        }
+
+        .stat-card {
+            border-radius: 16px;
+        }
+
+        .stat-card .label {
+            line-height: 1.45;
+            letter-spacing: 0.025em;
+        }
+
+        .controls-card {
+            border-radius: 16px;
+        }
+
+        .filter-btn {
+            min-height: 38px;
+            border-radius: 10px;
+        }
+
+        .search-box input {
+            min-height: 40px;
+            border-color: #dce4e9;
+            border-radius: 10px;
+        }
+
+        .table-card {
+            border-radius: 16px;
+        }
+
+        th {
+            background: #f6f8f9;
+        }
+
+        td,
+        th {
+            line-height: 1.5;
+        }
+
+        .risk-badge {
+            border-radius: 999px;
+            padding: 5px 10px;
+        }
+
+        .btn-investigate {
+            min-height: 36px;
+            border-radius: 9px;
+        }
+
+        .investigation-card {
+            border: 1px solid #edf0f2;
+            box-shadow: 0 20px 60px rgba(16, 36, 55, 0.2);
+        }
+
+        .inv-header {
+            background: linear-gradient(135deg, #17314d, #24435f);
+        }
+
+        .inv-qa-block {
+            border-radius: 12px;
+            line-height: 1.6;
+        }
+
+        :focus-visible {
+            outline: 3px solid rgba(233, 120, 24, 0.38);
+            outline-offset: 2px;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                scroll-behavior: auto !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        body {
+            font-size: 16px;
+        }
+
+        .top-nav {
+            font-size: 16px;
+        }
+
+        .top-nav .nav-link {
+            font-size: 15px;
+        }
+
+        .header-bar h1 {
+            font-size: 28px;
+        }
+
+        .header-bar p {
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        .stat-card .label {
+            font-size: 14px;
+        }
+
+        .controls-card,
+        .filter-btn,
+        .search-box input {
+            font-size: 15px;
+        }
+
+        table {
+            font-size: 15px;
+        }
+
+        th {
+            font-size: 13px;
+        }
+
+        td[style*="font-size:12px"] {
+            font-size: 14px !important;
+        }
+
+        .risk-badge,
+        .btn-investigate {
+            font-size: 14px;
+        }
+
+        .inv-body,
+        .inv-qa-block {
+            font-size: 16px;
+            line-height: 1.65;
+        }
+
+        .inv-qa-block strong {
+            font-size: 14px;
+        }
+
+        .inv-body div[style*="font-size:11px"],
+        .inv-body div[style*="font-size:12px"] {
+            font-size: 14px !important;
+        }
     </style>
 </head>
 <body>
@@ -338,7 +685,7 @@
     <!-- Top Nav -->
     <nav class="top-nav">
         <div class="brand-title">
-            <span>upay</span> SafeSend Fraud Operations & Investigation Copilot
+            <span>upay</span> SafeSend payments overview
         </div>
         <div class="nav-links">
             <a href="/" class="nav-link">📱 Mobile Wallet</a>
@@ -351,30 +698,30 @@
         <!-- Header -->
         <div class="header-bar">
             <div>
-                <h1>Real-Time Transaction Risk Monitor</h1>
-                <p>MFS Operations Intelligence: screening live payments, explainable scam detection, and mule account prevention.</p>
+                <h1>Payments overview</h1>
+                <p>Review recent transfers, see which may need attention, and check the details before deciding what to do.</p>
             </div>
             <div>
-                <button class="filter-btn" onclick="location.reload()" style="background:white;">🔄 Refresh Feed</button>
+                <button class="filter-btn" onclick="location.reload()" style="background:white;">🔄 Refresh activity</button>
             </div>
         </div>
 
         <!-- Stat Cards -->
         <div class="stats-grid">
             <div class="stat-card">
-                <span class="label">Total Monitored Payments</span>
+                <span class="label">Transfers reviewed</span>
                 <span class="val">{{ total_count }}</span>
             </div>
             <div class="stat-card safe">
-                <span class="label">Safe Transactions (Low Risk)</span>
+                <span class="label">Look familiar</span>
                 <span class="val">{{ low_count }}</span>
             </div>
             <div class="stat-card med">
-                <span class="label">Suspicious Transfers (Medium)</span>
+                <span class="label">Worth a second look</span>
                 <span class="val">{{ med_count }}</span>
             </div>
             <div class="stat-card high">
-                <span class="label">High Risk Intercepted</span>
+                <span class="label">Paused for review</span>
                 <span class="val">{{ high_count }}</span>
             </div>
         </div>
@@ -382,15 +729,15 @@
         <!-- Controls Bar -->
         <div class="controls-card">
             <div class="filter-tabs">
-                <button class="filter-btn active" onclick="filterRisk('ALL')">All Transactions</button>
-                <button class="filter-btn" onclick="filterRisk('HIGH')">🚨 High Risk ({{ high_count }})</button>
-                <button class="filter-btn" onclick="filterRisk('MEDIUM')">⚠️ Medium Risk ({{ med_count }})</button>
-                <button class="filter-btn" onclick="filterRisk('LOW')">✅ Low Risk ({{ low_count }})</button>
+                <button class="filter-btn active" onclick="filterRisk('ALL')">All transfers</button>
+                <button class="filter-btn" onclick="filterRisk('HIGH')">🚨 Needs attention ({{ high_count }})</button>
+                <button class="filter-btn" onclick="filterRisk('MEDIUM')">⚠️ Take a closer look ({{ med_count }})</button>
+                <button class="filter-btn" onclick="filterRisk('LOW')">✅ Looks familiar ({{ low_count }})</button>
             </div>
 
             <div class="search-box">
                 <span>🔍</span>
-                <input type="text" id="searchInput" onkeyup="searchTable()" placeholder="Search User, Recipient, or Txn ID...">
+                <input type="text" id="searchInput" onkeyup="searchTable()" placeholder="Find a transfer by person or ID...">
             </div>
         </div>
 
@@ -403,10 +750,10 @@
                         <th>User ID</th>
                         <th>Recipient</th>
                         <th>Amount</th>
-                        <th>Risk Score</th>
-                        <th>Status</th>
-                        <th>Signals</th>
-                        <th>Action</th>
+                        <th>Risk estimate</th>
+                        <th>Review</th>
+                        <th>What stood out</th>
+                        <th>Details</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -431,7 +778,7 @@
                         </td>
                         <td>
                             <button class="btn-investigate" onclick="openInvestigate('{{ t.transaction_id }}', '{{ t.user_id }}', '{{ t.recipient_id }}', {{ t.amount }}, {{ t.risk_score }}, '{{ t.risk_level }}', {{ t.recipient_new|lower }}, {{ t.device_changed|lower }})">
-                                🔍 Investigate
+                                🔍 View details
                             </button>
                         </td>
                     </tr>
@@ -452,7 +799,7 @@
         <div class="investigation-card">
             <div class="inv-header">
                 <div style="font-weight:700; font-size:16px;">
-                    🛡️ AI Investigation Assistant: <span id="modalTxnId">UPAY-0000</span>
+                    🛡️ Transfer details: <span id="modalTxnId">UPAY-0000</span>
                 </div>
                 <button onclick="closeInvestigate()" style="background:transparent; border:none; color:white; font-size:20px; cursor:pointer;">&times;</button>
             </div>
@@ -472,35 +819,35 @@
 
                 <!-- 3 Key Hackathon Questions -->
                 <div class="inv-qa-block">
-                    <strong>1. What Happened?</strong>
+                    <strong>What happened</strong>
                     <div id="modalWhatHappened">--</div>
                 </div>
 
                 <div class="inv-qa-block" style="border-left-color: var(--upay-red);">
-                    <strong>2. Why Is It Risky? (Root Causes)</strong>
+                    <strong>Why it may need attention</strong>
                     <div id="modalWhyRisky">--</div>
                 </div>
 
                 <div class="inv-qa-block" style="border-left-color: var(--upay-green);">
-                    <strong>3. What Should Upay Do Next? (Action Plan)</strong>
+                    <strong>Suggested next step</strong>
                     <div id="modalWhatNext">--</div>
                 </div>
 
                 <!-- Model Pipeline breakdown -->
                 <div style="background:#f1f5f9; border-radius:10px; padding:12px 16px; font-size:12px; color:#475569; margin-top:14px;">
-                    <strong>AI Architecture Inference Trace:</strong><br>
-                    • Supervised Layer: XGBoost Tree Classifier evaluates fraud probability from historical behavioral distributions.<br>
-                    • Unsupervised Layer: Isolation Forest flags zero-day anomalies and out-of-distribution transfer velocities.<br>
-                    • Explainability Layer: SHAP computes exact Shapley marginal contributions for transparent auditing.
+                    <strong>How this check works:</strong><br>
+                    • SafeSend compares the transfer with this account's usual activity.<br>
+                    • It also checks for unusual changes, such as a new device or recipient.<br>
+                    • The review shows which details contributed to the result.
                 </div>
             </div>
 
             <div class="inv-footer">
-                <button class="filter-btn" onclick="alert('Transaction flagged for senior risk manager review.'); closeInvestigate();">
-                    🚩 Flag for Mule Investigation
+                <button class="filter-btn" onclick="alert('Transfer flagged for a closer review.'); closeInvestigate();">
+                    🚩 Flag for review
                 </button>
-                <button class="filter-btn" style="background:var(--upay-green); color:white; border:none;" onclick="alert('Transaction verified as legitimate.'); closeInvestigate();">
-                    ✓ Mark Legitimate
+                <button class="filter-btn" style="background:var(--upay-green); color:white; border:none;" onclick="alert('Transfer marked as verified.'); closeInvestigate();">
+                    ✓ Mark as verified
                 </button>
                 <button class="filter-btn" style="background:var(--upay-dark); color:white; border:none;" onclick="closeInvestigate()">
                     Close

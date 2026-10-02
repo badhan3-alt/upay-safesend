@@ -30,6 +30,12 @@ class RiskApiTests(TestCase):
         self.assertIn("ai_explanation", data)
         self.assertIn("reasons_bn", data)
         self.assertIn("investigation", data)
+        self.assertIn("investigation_bn", data)
+        self.assertIn("what_upay_should_do", data["investigation_bn"])
+        self.assertIn(
+            "অস্বাভাবিক কিছু চোখে পড়েনি",
+            data["investigation_bn"]["what_upay_should_do"],
+        )
 
     def test_risk_prediction_high_risk_scam(self):
         url = reverse("predict-risk")
