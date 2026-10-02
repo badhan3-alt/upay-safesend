@@ -35,6 +35,7 @@ ALLOWED_HOSTS = [
     "upay-safesend.onrender.com",
     ".onrender.com",
 ]
+
 CSRF_TRUSTED_ORIGINS = [
     "https://upay-safesend.onrender.com",
     "https://*.onrender.com",
