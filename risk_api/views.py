@@ -11,7 +11,6 @@ from rest_framework import generics, status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
-import shap
 
 from transactions.models import Transaction
 from .serializers import (
@@ -29,12 +28,11 @@ MODEL_PATH = MODEL_DIR / "fraud_xgboost.pkl"
 FEATURE_PATH = MODEL_DIR / "features.pkl"
 ANOMALY_MODEL_PATH = MODEL_DIR / "isolation_forest.pkl"
 
-# Load models and explainer safely
+# Load models safely
 try:
     xgb_model = joblib.load(MODEL_PATH)
     features_list = joblib.load(FEATURE_PATH)
     anomaly_model = joblib.load(ANOMALY_MODEL_PATH)
-    shap_explainer = shap.TreeExplainer(xgb_model)
 except Exception as e:
     print(f"Warning: Error loading ML models: {e}")
     xgb_model = None
@@ -50,7 +48,6 @@ except Exception as e:
         "account_age_days",
     ]
     anomaly_model = None
-    shap_explainer = None
 
 
 # Friendly labels for frontend / report
@@ -80,13 +77,13 @@ FEATURE_NAMES_BN = {
 
 
 # ============================================================
-# CORE RISK ENGINE (Ensemble: XGBoost + Isolation Forest + SHAP)
+# CORE RISK ENGINE (Ensemble: XGBoost + Isolation Forest + Lightweight Explainability)
 # ============================================================
 
 def evaluate_transaction_risk(feature_data: dict) -> dict:
     """
     Computes ensemble risk score, behavioral anomaly flag,
-    SHAP explainability, bilingual reasons, and recommendations.
+    lightweight explainability, bilingual reasons, and recommendations.
     """
     amount = float(feature_data.get("amount", 0))
     avg_amount = float(feature_data.get("average_transaction_amount", 2500))
@@ -203,29 +200,37 @@ def evaluate_transaction_risk(feature_data: dict) -> dict:
         reasons_en.append("Transaction matches verified activity pattern; no risk anomalies")
         reasons_bn.append("লেনদেনটি আপনার নিয়মিত ব্যবহারের সাথে পুরোপুরি সংগতিপূর্ণ")
 
-    # 6. SHAP Feature Attribution
+    # 6. Lightweight Feature Attribution
+    # Keeps the same response structure as the former SHAP output so the
+    # frontend can continue to use ai_explanation without changes.
+    feature_contributions = {
+        "amount": min(max((amount_ratio - 1.0) * 0.18, 0.0), 1.0),
+        "recipient_new": 0.35 if recipient_new else -0.05,
+        "hour": 0.25 if (hour <= 5 or hour >= 23) else -0.02,
+        "device_changed": 0.30 if device_changed else -0.03,
+        "location_changed": 0.25 if location_changed else -0.03,
+        "transactions_last_1h": min(max((tx_last_1h - 1) * 0.10, 0.0), 0.6),
+        "average_transaction_amount": -0.02,
+        "amount_ratio": min(max((amount_ratio - 1.0) * 0.30, 0.0), 1.2),
+        "account_age_days": 0.15 if account_age < 30 else -0.04,
+    }
+
     ai_explanation = []
-    if shap_explainer is not None:
-        try:
-            shap_result = shap_explainer(transaction_df)
-            shap_vals = shap_result.values[0]
-            for feat, val in zip(features_list, shap_vals):
-                val_flt = float(val)
-                ai_explanation.append(
-                    {
-                        "feature_key": feat,
-                        "feature": FEATURE_NAMES_EN.get(feat, feat),
-                        "feature_bn": FEATURE_NAMES_BN.get(feat, feat),
-                        "contribution": round(val_flt, 4),
-                        "effect": "increases risk" if val_flt > 0 else "reduces risk",
-                        "effect_bn": "ঝুঁকি বাড়ায়" if val_flt > 0 else "ঝুঁকি কমায়",
-                    }
-                )
-            ai_explanation.sort(key=lambda x: abs(x["contribution"]), reverse=True)
-            ai_explanation = ai_explanation[:5]
-        except Exception as err:
-            print("SHAP calculation exception:", err)
-            ai_explanation = []
+    for feat in features_list:
+        val_flt = float(feature_contributions.get(feat, 0.0))
+        ai_explanation.append(
+            {
+                "feature_key": feat,
+                "feature": FEATURE_NAMES_EN.get(feat, feat),
+                "feature_bn": FEATURE_NAMES_BN.get(feat, feat),
+                "contribution": round(val_flt, 4),
+                "effect": "increases risk" if val_flt > 0 else "reduces risk",
+                "effect_bn": "ঝুঁকি বাড়ায়" if val_flt > 0 else "ঝুঁকি কমায়",
+            }
+        )
+
+    ai_explanation.sort(key=lambda x: abs(x["contribution"]), reverse=True)
+    ai_explanation = ai_explanation[:5]
 
     # 7. Actionable Recommendations (Good Project Test: What should Upay do next?)
     if risk_level == "HIGH":

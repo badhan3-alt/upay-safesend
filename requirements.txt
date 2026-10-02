@@ -17,7 +17,6 @@ python-dateutil==2.9.0.post0
 scikit-learn==1.9.1
 scipy==1.18.1
 setuptools==84.0.0
-shap==0.52.0
 six==1.17.0
 slicer==0.0.8
 sqlparse==0.6.0
