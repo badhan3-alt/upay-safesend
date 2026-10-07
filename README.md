@@ -15,7 +15,7 @@ SafeSend is a Django prototype that screens simulated wallet transfers before co
 - Repeated-transfer guardrail for at least three similar-value attempts to one recipient within ten minutes.
 - Behavior from persistent transaction history, not a process-local list.
 - User-facing reasons, recommended next steps, and English/Bangla text.
-- Analyst sign-in, transaction investigation, and persistent Pending / Reviewed / Escalated / Cleared states.
+- Public read-only analyst dashboard, with sign-in required to update persistent Pending / Reviewed / Escalated / Cleared states.
 - A seeded, admin-managed prototype recipient directory. Production recipient verification must use Upay's authoritative wallet service.
 - CSRF-protected browser submissions, server-side amount and identifier validation, and analyst-only monitoring endpoints.
 
@@ -74,7 +74,8 @@ Django / DRF ── query transaction history ──► Relational database
     ├─ Separate repeated-transfer safety guardrail
     └─ Risk result, reasons, and recommended action
 
-Analyst login ──► protected dashboard and analyst-only monitoring API
+Public dashboard view ──► transaction overview
+Analyst login ──────────► protected status updates and analyst-only monitoring API
 ```
 
 The prototype uses Django and a relational database. Redis or a separate feature store is intentionally deferred. A production design could place Redis / a feature store between the authenticated Upay transaction API and a separately scaled inference service.
@@ -124,10 +125,11 @@ Open:
 
 - Wallet demo: <http://127.0.0.1:8000/>
 - Simulator: <http://127.0.0.1:8000/simulator/>
-- Analyst sign-in: <http://127.0.0.1:8000/analyst/login/>
+- Analyst dashboard: <http://127.0.0.1:8000/analyst/> (read-only without sign-in)
+- Analyst sign-in: <http://127.0.0.1:8000/analyst/login/> (required for review-status updates)
 - Django admin: <http://127.0.0.1:8000/admin/>
 
-Use a unique random local `SECRET_KEY`. The application refuses to start outside debug/test mode if `SECRET_KEY` is missing; the Render blueprint generates one. There are no default analyst credentials. Create a user, then either mark it as staff or assign it to a Django group named `Analyst` in the admin.
+Use a unique random local `SECRET_KEY`. The application refuses to start outside debug/test mode if `SECRET_KEY` is missing; the Render blueprint generates one. The analyst dashboard is intentionally public and read-only for demo access. An authorized account is required to change review states or access analyst monitoring APIs. There are no default analyst credentials. Create a user, then either mark it as staff or assign it to a Django group named `Analyst` in the admin.
 
 `Recipient` records are seeded by migration for the demo and can be managed in Django admin. Only active directory entries are accepted by transfer endpoints. This is a mock directory, not a connection to Upay's wallet registry.
 
@@ -194,7 +196,7 @@ These single-run figures depend on the local machine and development configurati
 
 Transfer endpoints reject non-positive / out-of-storage-range amounts, malformed or self-recipient identifiers, and recipients absent from the active prototype directory. The confirmation endpoint ignores client-provided scores and recalculates them from validated data and stored history.
 
-The wallet demo still uses caller-supplied demo sender IDs and does not authenticate real customers. Before any real payment integration, protect customer endpoints with Upay identity/session authentication, obtain sender identity from that authenticated principal, connect recipient checks to the authoritative wallet service, enforce payment authorization/step-up verification, and add production rate limiting and abuse monitoring. Browser POSTs use Django CSRF tokens; analyst pages and APIs require an authenticated analyst or staff account. Django secret values are environment-provided.
+The wallet demo still uses caller-supplied demo sender IDs and does not authenticate real customers. Before any real payment integration, protect customer endpoints with Upay identity/session authentication, obtain sender identity from that authenticated principal, connect recipient checks to the authoritative wallet service, enforce payment authorization/step-up verification, and add production rate limiting and abuse monitoring. The analyst dashboard is public and read-only for demo use, so its transaction details are visible without authentication; status updates and analyst APIs require an authenticated analyst or staff account. Do not expose real customer data through this demo configuration. Browser POSTs use Django CSRF tokens. Django secret values are environment-provided.
 
 ## Phase 2 Improvements
 

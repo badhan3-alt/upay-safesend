@@ -691,14 +691,24 @@
             <a href="/" class="nav-link">📱 Mobile Wallet</a>
             <a href="/simulator/" class="nav-link">🔬 AI Simulator</a>
             <a href="/analyst/" class="nav-link active">📊 Analyst Portal</a>
+            {% if can_manage_analyst %}
             <form method="post" action="{% url 'analyst-logout' %}">
                 {% csrf_token %}
                 <button class="filter-btn" type="submit">Sign out</button>
             </form>
+            {% else %}
+            <a href="{% url 'analyst-login' %}?next={% url 'analyst-dashboard' %}" class="nav-link">Sign in to update statuses</a>
+            {% endif %}
         </div>
     </nav>
 
     <div class="container">
+        {% if not can_manage_analyst %}
+        <div class="controls-card">
+            Read-only demo dashboard. Sign in with an authorized analyst account to update review statuses.
+        </div>
+        {% endif %}
+
         <!-- Header -->
         <div class="header-bar">
             <div>
@@ -791,6 +801,7 @@
                         </td>
                         <td style="font-size:12px;">{{ t.recommendation.en }}</td>
                         <td>
+                            {% if can_manage_analyst %}
                             <form method="post" action="{% url 'analyst-update-status' t.pk %}">
                                 {% csrf_token %}
                                 <select name="analyst_status" aria-label="Analyst status for {{ t.transaction_id }}">
@@ -800,6 +811,9 @@
                                 </select>
                                 <button class="btn-investigate" type="submit">Save</button>
                             </form>
+                            {% else %}
+                                {{ t.get_analyst_status_display }}
+                            {% endif %}
                         </td>
                         <td>
                             <button class="btn-investigate" type="button" onclick="openInvestigate(this)"

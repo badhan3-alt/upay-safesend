@@ -39,11 +39,21 @@ class AnalystDashboardTests(TestCase):
         self.assertContains(response, 'id="time_since_last"')
         self.assertContains(response, 'id="recipient_frequency"')
 
-    def test_dashboard_requires_analyst_login(self):
+    def test_dashboard_is_public_read_only_without_analyst_login(self):
         response = self.client.get(reverse("analyst-dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "UPAY-ANALYST-1")
+        self.assertContains(response, "Read-only demo dashboard.")
+        self.assertNotContains(response, f"/analyst/transactions/{self.transaction.pk}/status/")
+
+        response = self.client.post(
+            reverse("analyst-update-status", args=[self.transaction.pk]),
+            {"analyst_status": "ESCALATED"},
+        )
         self.assertEqual(response.status_code, 302)
         self.assertIn("/analyst/login/", response["Location"])
 
+    def test_analyst_can_view_dashboard_and_update_status(self):
         self.client.force_login(self.analyst)
         response = self.client.get(reverse("analyst-dashboard"))
         self.assertEqual(response.status_code, 200)
@@ -51,6 +61,7 @@ class AnalystDashboardTests(TestCase):
         self.assertContains(response, "Repeated transfer pattern")
         self.assertContains(response, "Fraud probability")
         self.assertContains(response, "Pending")
+        self.assertContains(response, "Save")
 
     def test_logged_in_non_analyst_is_forbidden(self):
         customer = User.objects.create_user(
@@ -59,6 +70,13 @@ class AnalystDashboardTests(TestCase):
         )
         self.client.force_login(customer)
         response = self.client.get(reverse("analyst-dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Read-only demo dashboard.")
+
+        response = self.client.post(
+            reverse("analyst-update-status", args=[self.transaction.pk]),
+            {"analyst_status": "ESCALATED"},
+        )
         self.assertEqual(response.status_code, 403)
 
     def test_analyst_can_persist_review_status(self):

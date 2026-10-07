@@ -40,11 +40,11 @@
 
 ## 1:35–2:05 — Analyst workflow
 
-**Show:** Sign in at `/analyst/login/` as an authorized analyst, then open `/analyst/`.
+**Show:** Open `/analyst/` without signing in to show the read-only dashboard. If demonstrating a review update, sign in at `/analyst/login/` as an authorized analyst.
 
 **Say:**
 
-> “The analyst dashboard now requires authentication. It shows each stored transaction's risk score, fraud probability, anomaly state, behavioral flags, reasons, recommended action, and review state. The analyst can persist Pending, Reviewed, Escalated, or Cleared.”
+> “The demo dashboard is read-only without login and shows each stored transaction's risk score, fraud probability, anomaly state, behavioral flags, reasons, recommended action, and review state. Authorized analysts can sign in to persist Pending, Reviewed, Escalated, or Cleared.”
 
 **Show:** Change one transaction to Escalated and refresh to show the saved status.
 
@@ -58,4 +58,4 @@
 
 **Close:**
 
-> “Phase 2 adds persistent behavioral history, explicit model-versus-guardrail outputs, human-readable explanations, protected analyst access, and measurable synthetic validation. Redis and production payment integration remain future work.”
+> “Phase 2 adds persistent behavioral history, explicit model-versus-guardrail outputs, human-readable explanations, protected review actions, and measurable synthetic validation. Redis and production payment integration remain future work.”

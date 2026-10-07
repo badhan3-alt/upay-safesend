@@ -50,7 +50,6 @@ def simulator(request):
     return render(request, "dashboard/home.html")
 
 
-@analyst_required
 def analyst_dashboard(request):
     total_count = Transaction.objects.count()
     low_count = Transaction.objects.filter(risk_level="LOW").count()
@@ -77,6 +76,7 @@ def analyst_dashboard(request):
             "high_risk_volume": float(high_risk_volume),
             "transactions": transactions,
             "analyst_statuses": Transaction.ANALYST_STATUSES,
+            "can_manage_analyst": is_analyst(request.user),
         },
     )
 

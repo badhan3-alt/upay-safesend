@@ -81,7 +81,7 @@ There are 60 false negatives in this holdout. High recall and PR-AUC remain impo
 
 The customer screen displays the final risk score and level, fraud probability, anomaly score/status, reasons derived from behavioral features and triggered rules, and a recommended next step. These are not SHAP values or per-instance mathematical attributions.
 
-The analyst portal is protected by Django authentication and accepts either staff users or users in the `Analyst` group. It displays sender/recipient, amount, model outputs, anomaly status, behavioral flags, risk factors, recommended action, and analyst state. Analysts can persist Pending, Reviewed, Escalated, or Cleared status changes. The analyst monitoring API uses the same role check.
+The analyst dashboard is public and read-only for demo access; it displays sender/recipient, amount, model outputs, anomaly status, behavioral flags, risk factors, recommended action, and analyst state. Authorized staff users or users in the `Analyst` group can sign in to persist Pending, Reviewed, Escalated, or Cleared status changes. The analyst monitoring API uses the same role check. Because the dashboard exposes transaction details publicly, this configuration is for synthetic/demo data only and must not be used with real customer records.
 
 ## 9. Validation and security controls
 
