@@ -1,311 +1,219 @@
-# 🛡️ upay SafeSend — AI Transaction Guardian
+# Upay SafeSend
 
-> **AI DEV FEST 2026** — Organized by DIU CPC × upay  
-> **Track 01:** Trust & Risk Intelligence | **Track 06:** Operations & Service Intelligence  
-> *Real-Time Transaction Risk Scoring • Behavioral Anomaly Detection • Explainable AI (SHAP) • Bilingual Human Oversight*
+SafeSend is a Django prototype that screens simulated wallet transfers before confirmation. It combines a supervised fraud probability, a separate Isolation Forest anomaly signal, recent transaction behavior, bilingual explanations, and an analyst review workflow. The included data is synthetic; this project has not been validated on Upay customer data or measured for real-world loss reduction.
 
----
+## Project overview
 
-## 📌 Project Overview
+- **Problem:** A payment screen gives a customer little context when a transfer resembles scam or account-takeover activity.
+- **Prototype response:** Analyze transaction details and database-backed sender history, explain relevant signals, and ask the customer to pause or confirm.
+- **Intended users:** Wallet customers in the demo flow and authorized fraud analysts.
+- **Deployment demo:** [upay-safesend.onrender.com](https://upay-safesend.onrender.com)
 
-### 1. The Problem
-Mobile Financial Services (MFS) users frequently fall victim to social engineering scams, urgency fraud, fake prize/lottery calls, and unauthorized account takeovers. Traditional fraud monitoring systems only trigger **post-transaction alerts** after funds have already settled and been cashed out via money-mule rings.
+## Features
 
-### 2. The Solution
-**Upay SafeSend** is an embedded AI transaction guardian that screens transfers **before completion**. It evaluates 9 real-time behavioral features and outputs:
-- **Calibrated Risk Score (0–100%)** & **Risk Tier (LOW / MEDIUM / HIGH)**
-- **Explainable Reasons & SHAP Attribution**
-- **Actionable Safety Recommendations** in both **English and বাংলা (Bangla)**
-- **Human Oversight Interception**: allows users to cancel or verify before funds leave their wallet.
+- Pre-confirmation risk assessment using XGBoost and Isolation Forest.
+- Repeated-transfer guardrail for at least three similar-value attempts to one recipient within ten minutes.
+- Behavior from persistent transaction history, not a process-local list.
+- User-facing reasons, recommended next steps, and English/Bangla text.
+- Analyst sign-in, transaction investigation, and persistent Pending / Reviewed / Escalated / Cleared states.
+- A seeded, admin-managed prototype recipient directory. Production recipient verification must use Upay's authoritative wallet service.
+- CSRF-protected browser submissions, server-side amount and identifier validation, and analyst-only monitoring endpoints.
 
-### 3. The Good Project Test
-- **What happened?** A user requests an unusual ৳38,500 transfer at 3:00 AM to an unverified recipient from an unfamiliar device.
-- **Why is it risky?** Amount is 15× higher than the user's historical average; novel recipient; extreme hour; behavioral anomaly flagged.
-- **What should Upay do next?** Intervene pre-transaction, display plain-language risk advisory in Bangla/English, mandate re-verification, and log to the MFS fraud operations stream.
+## Stack
 
----
+- Python 3.12, Django 6.1, Django REST Framework
+- XGBoost, scikit-learn Isolation Forest, pandas, NumPy, joblib
+- SQLite by default; PostgreSQL through `DATABASE_URL`
+- HTML, CSS, and JavaScript
 
-## 🚀 Key Features
+## Behavioral features
 
-| Feature | Description | AI / ML Component |
-| :--- | :--- | :--- |
-| **Pre-Transaction Risk Scoring** | Evaluates transfer risk in < 50ms before payment confirmation | **XGBoost Classifier** (150 trees, depth 4) |
-| **Behavioral Anomaly Detection** | Detects zero-day anomalies and abnormal outflow patterns | **Isolation Forest** (200 estimators, 5% contamination) |
-| **Explainable AI (XAI)** | Computes exact mathematical impact of each signal | **SHAP TreeExplainer** (local Shapley values) |
-| **Bilingual Warning & Oversight** | Instant English / বাংলা toggle for user empowerment | Rule Trace Engine & Localized UI |
-| **Upay Mobile Wallet Client (`/`)** | Realistic MFS send-money simulation with 1-click judge presets | Context-aware DRF API (`/api/risk/send-money/`) |
-| **Interactive AI Simulator (`/simulator/`)** | Test any parameter combination and inspect live SHAP bars | Direct prediction API (`/api/risk/predict/`) |
-| **Fraud Operations Portal (`/analyst/`)** | Live stream of transactions, risk filters, and root-cause audit | DRF Analytics & Investigation Copilot |
+The persisted-history API and training pipeline use the same feature order from [`model/feature_schema.py`](model/feature_schema.py):
 
----
+| Feature | Meaning |
+| --- | --- |
+| `amount` | Current transfer amount |
+| `amount_ratio` | Amount divided by the sender's prior average |
+| `transactions_last_1h` | Sender transactions in the previous hour |
+| `total_transactions_10m` | Sender transactions in the previous ten minutes |
+| `same_receiver_count_5m` | Sender transfers to this recipient in five minutes |
+| `same_receiver_count_10m` | Sender transfers to this recipient in ten minutes |
+| `similar_amount_count_10m` | Transfers to this recipient within ±5% of the amount in ten minutes |
+| `time_since_last_transaction` | Minutes since the sender's previous transfer |
+| `average_transaction_amount` | Historical sender average |
+| `recipient_frequency` | Historical transfers from this sender to this recipient |
+| `recipient_new` | Whether the sender has used this recipient before |
+| `hour` | Transfer hour, 0–23 |
+| `device_changed` | Simulated unfamiliar-device signal |
+| `location_changed` | Simulated unusual-location signal |
+| `account_age_days` | Sender account age used by the synthetic model |
 
-## 🛠️ Technology Stack
+For a new attempt, historical counts exclude the current attempt. The third similar transfer therefore sees two matching confirmed transfers in the preceding ten minutes and triggers the guardrail. Amount similarity is inclusive of five percent above or below the attempted amount.
 
-- **Languages:** Python 3.12+ (or 3.13), JavaScript (ES6+), HTML5 / CSS3
-- **Web & API Framework:** Django 6.1, Django REST Framework (DRF)
-- **Machine Learning & AI:** 
-  - `xgboost==3.4.1` (Supervised Risk Classification)
-  - `scikit-learn==1.9.1` (Isolation Forest Anomaly Detection, Train/Test Split, Metrics)
-  - `shap==0.52.0` (Shapley Additive exPlanations TreeExplainer)
-  - `pandas==3.0.6`, `numpy==2.5.3` (Feature Engineering & Synthetic Data Pipeline)
-  - `joblib==1.6.0` (Model Persistence)
-- **Database:** SQLite3 (Django ORM) with seeded behavioral transaction histories
-- **Styling & UI:** Clean Upay Brand Design (`#f58220` Upay Orange, `#0b1e36` Navy Dark, `#ffffff` Clean White)
+## Risk decision and explanations
 
----
+1. XGBoost supplies the fraud probability and primary 0–100 risk score.
+2. Isolation Forest supplies a separate anomaly score and flag. The score is a calibrated model signal, **not a fraud probability**.
+3. A repeated-similar-transfer guardrail applies a minimum score of 70; it is reported separately from the model outputs.
+4. `LOW` is below 30, `MEDIUM` is 30 to below 70, and `HIGH` is 70 or above.
 
-## 🏗️ System Architecture
+Explanations are generated from measured behavioral features, model outputs, and triggered guardrails. The interface does not claim SHAP or per-instance feature attribution.
+
+## Architecture
 
 ```text
-  [ Upay Mobile Client ] <==== (JSON / REST API) ====> [ Django / DRF Backend ]
-          │                                                       │
-          ├─ Enter Recipient & Amount                             ├─ Context Assembly (Avg Amount, Velocity)
-          ├─ 1-Click Scenarios                                   ├─ Feature Alignment Pipeline
-          └─ Bilingual Interception Modal                         │
-                                                                  ▼
-                                                      [ ML Risk Scoring Engine ]
-                                                                  │
-                                      ┌───────────────────────────┴───────────────────────────┐
-                                      ▼                                                       ▼
-                            [ XGBoost Classifier ]                                 [ Isolation Forest ]
-                            (Supervised Fraud Prob)                                (Unsupervised Anomaly)
-                                      │                                                       │
-                                      └───────────────────────────┬───────────────────────────┘
-                                                                  ▼
-                                                      [ Ensemble Calibrator ]
-                                                      Score = 0.75*XGB + 0.25*IF
-                                                                  │
-                                                                  ▼
-                                                      [ SHAP TreeExplainer ]
-                                                      (Feature Attribution & Impact)
-                                                                  │
-                                                                  ▼
-                                                      [ Response Payload ]
-                                                      • Risk Score & Level (LOW/MED/HIGH)
-                                                      • Bilingual Explanations (EN / BN)
-                                                      • Actionable Recommendations
-                                                      • Investigation Narrative (3 Questions)
+Wallet demo
+    │ POST + CSRF
+    ▼
+Django / DRF ── query transaction history ──► Relational database
+    │                                         ├─ Sender and recipient velocity
+    │                                         ├─ Historical amount baseline
+    │                                         └─ Persistent score and review state
+    ├─ Behavioral feature vector ──► XGBoost fraud probability
+    ├─ Behavioral feature vector ──► Isolation Forest anomaly signal
+    ├─ Separate repeated-transfer safety guardrail
+    └─ Risk result, reasons, and recommended action
+
+Analyst login ──► protected dashboard and analyst-only monitoring API
 ```
 
----
+The prototype uses Django and a relational database. Redis or a separate feature store is intentionally deferred. A production design could place Redis / a feature store between the authenticated Upay transaction API and a separately scaled inference service.
 
-## 📊 Dataset & Features
+## Model evaluation
 
-The model was developed following the **Privacy by Design** hackathon rule: 10,000 synthetic transactions generated via `model/generate_data.py`.
+The reproducible synthetic dataset has 10,000 chronological rows. Training uses the oldest 8,000; the newest 2,000 are held out. The XGBoost metrics below are calculated at a 0.50 probability threshold. The dataset is generated from injected synthetic patterns and these values are not estimates of production performance.
 
-### Analyzed Feature Vector
-1. `amount`: Transaction amount (৳)
-2. `recipient_new`: 1 if recipient has never received funds from this user, else 0
-3. `hour`: Hour of transaction (0–23)
-4. `device_changed`: 1 if new/unrecognized hardware/browser detected, else 0
-5. `location_changed`: 1 if abnormal geo-distance shift detected, else 0
-6. `transactions_last_1h`: Transaction frequency in the past 60 minutes
-7. `average_transaction_amount`: User's baseline historical average amount
-8. `amount_ratio`: `amount / average_transaction_amount` (spike multiplier)
-9. `account_age_days`: Tenure of the sender account
+| Metric | Chronological holdout |
+| --- | ---: |
+| Accuracy | 96.85% |
+| Precision | 98.50% |
+| Recall | 76.65% |
+| F1 | 86.21% |
+| ROC-AUC | 0.9735 |
+| PR-AUC (average precision) | 0.9308 |
+| False-positive rate | 0.17% |
 
----
+Confusion matrix (actual rows: normal, fraud; predicted columns: normal, fraud):
 
-## 📈 Model Evaluation & Real Results
-
-Model was evaluated on an 80/20 train/test split (8,000 training samples, 2,000 hold-out test samples):
-
-| Metric | Hold-Out Test Result |
-| :--- | :--- |
-| **Accuracy** | 100.00% |
-| **Precision** | 100.00% |
-| **Recall** | 100.00% |
-| **F1 Score** | 100.00% |
-| **False Positive Rate** | 0.00% |
-
-### Confusion Matrix (Test Split: 2,000 Transactions)
 ```text
-                  Predicted Normal    Predicted Fraud
-Actual Normal:          1849                  0
-Actual Fraud:              0                151
+                 Predicted normal  Predicted fraud
+Actual normal            1740                3
+Actual fraud                60              197
 ```
 
----
+The 60 false negatives matter: the model does not detect every injected fraud case. Metrics are generated by [`model/train_model.py`](model/train_model.py) and written to `model/saved_models/evaluation_metrics.json`; rerun training after changing the data or features before changing these reported values.
 
-## ⚙️ Requirements & Prerequisites
+## Setup
 
-- **Python:** Version 3.10, 3.11, or 3.12 (compatible with 3.13)
-- **Pip:** Version 23.0+
-- **Git:** Standard git client
-- **Hardware:** Any standard computer / laptop (runs on CPU in milliseconds)
+Prerequisites: Python 3.12 and Git.
 
----
-
-## 🚀 Installation & Setup Instructions
-
-### 1. Clone the Repository
-```bash
+```powershell
 git clone https://github.com/badhan3-alt/upay-safesend.git
-cd upay-safesend
+Set-Location upay-safesend
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+$env:DEBUG = "True"
+$env:SECRET_KEY = "set-a-random-local-development-secret"
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py runserver
 ```
 
-### 2. Set Up Virtual Environment
-```bash
-# Windows (PowerShell)
-python -m venv venv
-.\venv\Scripts\activate
+Open:
 
-# Linux / macOS
-python3 -m venv venv
-source venv/bin/activate
-```
+- Wallet demo: <http://127.0.0.1:8000/>
+- Simulator: <http://127.0.0.1:8000/simulator/>
+- Analyst sign-in: <http://127.0.0.1:8000/analyst/login/>
+- Django admin: <http://127.0.0.1:8000/admin/>
 
-### 3. Install Dependencies
-```bash
-pip install -r requirements.txt
-```
+Use a unique random local `SECRET_KEY`. The application refuses to start outside debug/test mode if `SECRET_KEY` is missing; the Render blueprint generates one. There are no default analyst credentials. Create a user, then either mark it as staff or assign it to a Django group named `Analyst` in the admin.
 
-### 4. Database Setup & Seeding
-```bash
-# Apply migrations
+`Recipient` records are seeded by migration for the demo and can be managed in Django admin. Only active directory entries are accepted by transfer endpoints. This is a mock directory, not a connection to Upay's wallet registry.
+
+## Environment configuration
+
+| Variable | Purpose |
+| --- | --- |
+| `SECRET_KEY` | Required signing key outside debug/test mode; keep it out of source control |
+| `DEBUG` | Set `True` only for local development |
+| `ALLOWED_HOSTS` | Optional comma-separated host list |
+| `DATABASE_URL` | Optional database URL; defaults to `db.sqlite3` |
+
+## Commands
+
+```powershell
+# Apply schema changes
 python manage.py migrate
 
-# Seed realistic demo transactions for judging
-python manage.py seed_data
-```
+# Run focused tests or the full suite
+python manage.py test risk_api dashboard
+python manage.py test
 
-*(Optional) If you wish to regenerate the dataset or retrain the models from scratch:*
-```bash
+# Recreate the synthetic training data and models
 python model/generate_data.py
 python model/train_model.py
 python model/train_anomaly.py
+
+# Check model / schema state
+python manage.py check
+python manage.py makemigrations --check --dry-run
 ```
 
----
+`python manage.py seed_data` is optional demo data only; review that command before using it because it replaces existing transaction rows.
 
-## 🔑 Environment Variables
+### Load check
 
-The project uses safe defaults for hackathon local evaluation. For production deployment, configure the following variables in an `.env` file or host environment:
+Start the local server with `DEBUG=True`, then run:
 
-| Variable Name | Purpose | Example / Default |
-| :--- | :--- | :--- |
-| `SECRET_KEY` | Django cryptographic signing key | `django-insecure-...` (replace in production) |
-| `DEBUG` | Enable/disable debug mode | `True` (set `False` for production) |
-| `ALLOWED_HOSTS` | Comma-separated allowed domain names | `127.0.0.1,localhost` |
-| `DATABASE_URL` | PostgreSQL connection URL (optional) | `sqlite:///db.sqlite3` |
-
----
-
-## ▶️ Run & Build Commands
-
-### Start the Local Development Server
-```bash
-python manage.py runserver
-```
-Once started, open your web browser at:
-- 📱 **Mobile Wallet Client:** [http://127.0.0.1:8000/](http://127.0.0.1:8000/)
-- 🔬 **AI Risk Engine Lab & Simulator:** [http://127.0.0.1:8000/simulator/](http://127.0.0.1:8000/simulator/)
-- 📊 **Fraud Operations & Analyst Portal:** [http://127.0.0.1:8000/analyst/](http://127.0.0.1:8000/analyst/)
-- 🔐 **Django Admin:** [http://127.0.0.1:8000/admin/](http://127.0.0.1:8000/admin/)
-
----
-
-## 🧪 Testing Instructions
-
-Run the automated test suite covering all APIs, prediction endpoints, confirmation logic, and database state:
-
-```bash
-python manage.py test
+```powershell
+python scripts/load_test.py
 ```
 
-Expected output:
-```text
-Creating test database for alias 'default'...
-.....
-----------------------------------------------------------------------
-Ran 5 tests in 0.224s
+The standard run sends 100, 500, and 1,000 concurrent CSRF-protected requests to `/api/risk/send-money/` using eight workers. It prints successful requests, errors, average response time, and elapsed wall time for this machine. These are prototype smoke/load measurements, not a production capacity claim.
 
-OK
-```
+Observed local run against the Django development server and SQLite, with eight workers:
 
-### Manual Judge Testing Walkthrough
-1. **Normal Transaction:** Open [http://127.0.0.1:8000/](http://127.0.0.1:8000/), click the **🟢 NORMAL TRANSFER** preset button (৳1,500). Click **SafeSend Screen & Continue**. Notice the instant straight-through success with 0 friction.
-2. **High-Risk Scam Interception:** Click the **🚨 3 AM SCAM / TAKEOVER** preset button (৳38,500). Click **SafeSend Screen & Continue**.
-3. **Interception Screen:** Observe the **93% High Risk** alert, Isolation Forest anomaly badge, SHAP feature attribution bars, and the **বাংলা (Bangla)** toggle.
-4. **Analyst Investigation:** Open [http://127.0.0.1:8000/analyst/](http://127.0.0.1:8000/analyst/), click **Investigate** on any high-risk row to inspect root-cause explanations and next steps.
+| Requests | Successful | Errors | Average response | Wall time |
+| ---: | ---: | ---: | ---: | ---: |
+| 100 | 100 | 0 | 498.11 ms | 6.53 s |
+| 500 | 500 | 0 | 461.39 ms | 29.04 s |
+| 1,000 | 1,000 | 0 | 602.03 ms | 75.53 s |
 
----
+These single-run figures depend on the local machine and development configuration. They demonstrate request-path functionality only; they are not production capacity, availability, or latency guarantees.
 
-## 🌐 Live Deployment URL
+## API
 
-- **Demo URL:** `https://upay-safesend.onrender.com` *(or local evaluation at `http://127.0.0.1:8000/`)*
-- **Repository:** `https://github.com/badhan3-alt/upay-safesend`
-- **Video Demonstration:** See [docs/VIDEO_DEMO_SCRIPT.md](docs/VIDEO_DEMO_SCRIPT.md) for full video walkthrough and presentation script.
-- **Detailed Project Report:** See [docs/PROJECT_REPORT.md](docs/PROJECT_REPORT.md) for the 13-section technical paper.
+| Method | Endpoint | Access |
+| --- | --- | --- |
+| `POST` | `/api/risk/predict/` | CSRF-protected simulator; accepts feature values |
+| `POST` | `/api/risk/send-money/` | CSRF-protected demo; derives behavior from database history |
+| `POST` | `/api/risk/confirm/` | CSRF-protected demo; recomputes risk on the server and persists the result |
+| `GET` | `/api/risk/stats/` | Analyst or staff account |
+| `GET` | `/api/transactions/` | Analyst or staff account |
 
----
+Transfer endpoints reject non-positive / out-of-storage-range amounts, malformed or self-recipient identifiers, and recipients absent from the active prototype directory. The confirmation endpoint ignores client-provided scores and recalculates them from validated data and stored history.
 
-## 📡 REST API Reference
+The wallet demo still uses caller-supplied demo sender IDs and does not authenticate real customers. Before any real payment integration, protect customer endpoints with Upay identity/session authentication, obtain sender identity from that authenticated principal, connect recipient checks to the authoritative wallet service, enforce payment authorization/step-up verification, and add production rate limiting and abuse monitoring. Browser POSTs use Django CSRF tokens; analyst pages and APIs require an authenticated analyst or staff account. Django secret values are environment-provided.
 
-### 1. Predict Risk (Direct Feature Input)
-- **Endpoint:** `POST /api/risk/predict/`
-- **Request:**
-  ```json
-  {
-    "amount": 38500.0,
-    "average_transaction_amount": 2500.0,
-    "hour": 3,
-    "transactions_last_1h": 6,
-    "account_age_days": 180,
-    "recipient_new": true,
-    "device_changed": true,
-    "location_changed": true
-  }
-  ```
-- **Response:**
-  ```json
-  {
-    "risk_score": 93.4,
-    "risk_level": "HIGH",
-    "xgboost_score": 91.2,
-    "behavioral_anomaly": true,
-    "reasons": [
-      "New recipient (first time sending to this account)",
-      "Amount is 15.4× higher than normal user average (৳2,500)",
-      "Transaction initiated from an unfamiliar or changed device"
-    ],
-    "reasons_bn": [
-      "নতুন প্রাপক (পূর্বে কখনও এই নম্বরে লেনদেন হয়নি)",
-      "স্বাভাবিক গড়ের চেয়ে ১৫.৪ গুণ বেশি টাকা",
-      "নতুন বা পরিবর্তিত ডিভাইস থেকে লেনদেন করা হচ্ছে"
-    ],
-    "recommendation": "Verify the recipient via phone call before continuing.",
-    "ai_explanation": [
-      {
-        "feature": "Spike vs Normal Spending",
-        "contribution": 0.421,
-        "effect": "increases risk"
-      }
-    ]
-  }
-  ```
+## Phase 2 Improvements
 
-### 2. Screen Send-Money (Context-Aware)
-- **Endpoint:** `POST /api/risk/send-money/`
-- **Request:**
-  ```json
-  {
-    "user_id": "U0001",
-    "recipient_id": "01300998877",
-    "amount": 38500.0,
-    "device_changed": true,
-    "location_changed": true,
-    "hour": 3
-  }
-  ```
+- Behavioral repeated-transaction detection and similar-amount velocity detection.
+- Expanded history-derived features for XGBoost and Isolation Forest.
+- Chronological holdout validation with precision, recall, F1, ROC-AUC, PR-AUC, confusion matrix, and false-positive rate.
+- Human-readable, bilingual explanations from behavioral features, model outputs, and safety rules.
+- Analyst authentication and persistent Pending / Reviewed / Escalated / Cleared states.
+- Persistent transaction history and backend-only risk recomputation on confirmation.
+- Recipient input validation, analyst-only monitoring APIs, CSRF protection, and environment-based secrets.
+- Reproducible request-volume smoke test and a before-vs-after demo walkthrough.
 
-### 3. Confirm Transaction (Human Override / Low Risk Settlement)
-- **Endpoint:** `POST /api/risk/confirm/`
+## Business impact and limitations
 
----
+Measured now: synthetic-data recall, PR-AUC, false-positive rate, generated high-risk decisions, and whether a user confirmed a transfer in the prototype. Not measured: prevented losses, customer harm reduction, production latency, or improvement on governed Upay data. Validate those future outcomes with a controlled, privacy-governed evaluation before making business-impact claims.
 
-## 👥 Hackathon Team & Acknowledgements
+The synthetic generator encodes the patterns the model learns; chronological splitting reduces temporal leakage but does not replace an independent real-world test. The recipient registry, sender IDs, device/location signals, and wallet flow are simulated. The prototype does not provide biometric verification, payment settlement, graph intelligence, or a production-scale feature store.
 
-- **Event:** AI DEV FEST 2026 — AI Hackathon
-- **Organizer:** DIU Computer and Programming Club (DIU-CPC), Department of CSE, Daffodil International University
-- **In Partnership with:** upay (UCB Fintech Company Limited)
+## Demo and report
+
+- [Before-vs-after video walkthrough](docs/VIDEO_DEMO_SCRIPT.md)
+- [Technical project report](docs/PROJECT_REPORT.md)

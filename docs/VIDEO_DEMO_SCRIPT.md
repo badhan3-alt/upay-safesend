@@ -1,62 +1,61 @@
-# Upay SafeSend — Video Demonstration Script (2–3 Minutes)
-### AI DEV FEST 2026 — DIU CPC × upay Hackathon
+# SafeSend Phase 2 Demo Script (2–3 minutes)
 
----
+## Before recording
 
-### **[0:00 - 0:25] Opening & Problem Statement**
-**Speaker:**
-> *"Upay SafeSend is an AI-powered transaction guardian designed to protect mobile financial service users from suspicious and potentially fraudulent transactions.*
-> 
-> *In Bangladesh today, mobile wallet fraud and social engineering scams cause millions of takas in losses every month. Traditional fraud detection works after the fact—when the money has already left the wallet and been withdrawn through cash-out agents. SafeSend changes this completely by intercepting transactions before they occur."*
+1. Apply migrations and start the server with `DEBUG=True`.
+2. Create an analyst user and either set `is_staff` or add the user to the Django group named `Analyst`.
+3. Confirm the active recipient directory contains `01711223344` and `01300998877` (both are seeded by migration).
+4. Use a fresh demo sender, or note existing history so the repeated-transfer example is easy to follow.
+5. Optional: run `python scripts/load_test.py` and show its measured output without describing it as a production capacity test.
 
----
+## 0:00–0:25 — What SafeSend does
 
-### **[0:25 - 0:50] The Mobile Experience: Normal vs. High-Risk**
-*(Screen recording showing the simulated mobile app at `http://127.0.0.1:8000/`)*
+**Show:** Wallet demo at `/`.
 
-**Speaker:**
-> *"Here is our simulated Upay mobile wallet interface. Let's demonstrate two scenarios.*
-> 
-> *First, a normal transaction: User U0001 sends ৳1,500 to a regular contact during daytime. SafeSend evaluates 9 behavioral features in milliseconds. The risk score is only 6%—Low Risk. The transfer is confirmed instantly with zero user friction.*
-> 
-> *Now, let's test a dangerous scam scenario: using our 1-click demo preset, the user attempts to send ৳38,500 at 3:00 AM to a new recipient from a changed device."*
+**Say:**
 
----
+> “Upay SafeSend is a prototype that checks a simulated transfer before confirmation. It compares the transaction with persistent sender history, shows separate supervised and anomaly-model outputs, and explains the details that need attention. The current model evaluation uses synthetic data only.”
 
-### **[0:50 - 1:25] Pre-Transaction Interception & Explainable AI (SHAP)**
-*(Screen recording transitions to `/warning/` showing the red high-risk alert and SHAP bars)*
+## 0:25–1:10 — Before vs. after: repeated transfers
 
-**Speaker:**
-> *"Immediately, SafeSend intervenes before the funds are sent.*
-> 
-> *Instead of an annoying generic error message, SafeSend provides explainable intelligence: An AI Risk Score of 93%—High Risk. The Anomaly Detection engine flags this as an abnormal outflow.*
-> 
-> *Notice our SHAP explainability section: it shows the exact mathematical contribution of each signal—the massive amount ratio and unfamiliar recipient drove the risk up.*
-> 
-> *And crucially for Bangladesh, SafeSend features full Bangla language support with one click! Rural and first-time users can read plain-language warnings: 'টাকা পাঠানোর আগে প্রাপককে সরাসরি ফোন করে নিশ্চিত হোন।'*
-> 
-> *The user maintains human oversight: they can cancel to protect their money or verify before continuing."*
+**Show:** Send ৳399 to the same active recipient (`01711223344`) from sender `U0001`. Confirm the first two transfers. Keep all three attempts within ten minutes.
 
----
+**Say:**
 
-### **[1:25 - 1:55] The AI Engine Lab & Analyst Portal**
-*(Screen recording navigates to `/simulator/` and then `/analyst/`)*
+> “The first transfer gives SafeSend a baseline. The next attempt is also saved in the database. For the third similar-value attempt, the API finds two matching prior transfers to this recipient within ten minutes. The current attempt is excluded from the historical query, then counted in the explanation as the third transfer.”
 
-**Speaker:**
-> *"Behind the scenes, SafeSend is powered by an ensemble of XGBoost for supervised risk classification, Isolation Forest for unsupervised behavioral anomaly detection, and SHAP for local feature attribution.*
-> 
-> *In our AI Engine Lab, judges and developers can adjust any parameter—from velocity to device signals—and observe real-time feature attributions.*
-> 
-> *For Upay operations teams, our Analyst Portal monitors live transactions, highlights high-risk transfers, and features an AI Investigation Assistant that answers the three critical questions: What happened? Why is it risky? And what should Upay do next?"*
+**Show:** The warning screen's exact returned reason, fraud probability, anomaly score/status, and recommended action. The displayed result is generated live; do not narrate a fixed score.
 
----
+**Say:**
 
-### **[1:55 - 2:20] Model Performance & Real-Life Impact**
-*(Screen recording displays the model evaluation metrics table)*
+> “This is the Phase 2 difference: the behavior is calculated from database rows across requests, not from an in-memory list. The repeat-transfer guardrail is kept distinct from the learned model score.”
 
-**Speaker:**
-> *"Trained on a synthetic dataset of 10,000 transactions, our XGBoost model achieved 100% precision and recall on the hold-out test set, with zero false negatives on injected fraud patterns.*
-> 
-> *By combining predictive AI, anomaly detection, and explainable human oversight, Upay SafeSend turns every transaction into a protected moment, preserving user trust and establishing the future of secure digital finance in Bangladesh.*
-> 
-> *Thank you!"*
+## 1:10–1:35 — Transaction context and model outputs
+
+**Show:** Simulator at `/simulator/`. Try an ordinary example, then the late-night high-value preset.
+
+**Say:**
+
+> “The feature vector includes amount relative to the sender's average, transaction velocity, recipient frequency, time since the prior transaction, and recent same-recipient and similar-amount counts. XGBoost provides a fraud probability. Isolation Forest provides a separate anomaly signal; it is not presented as a fraud probability. The customer-facing reasons are based on observed features and triggered rules, not SHAP.”
+
+## 1:35–2:05 — Analyst workflow
+
+**Show:** Sign in at `/analyst/login/` as an authorized analyst, then open `/analyst/`.
+
+**Say:**
+
+> “The analyst dashboard now requires authentication. It shows each stored transaction's risk score, fraud probability, anomaly state, behavioral flags, reasons, recommended action, and review state. The analyst can persist Pending, Reviewed, Escalated, or Cleared.”
+
+**Show:** Change one transaction to Escalated and refresh to show the saved status.
+
+## 2:05–2:30 — Evaluation and limitations
+
+**Show:** `model/saved_models/evaluation_metrics.json` or the evaluation table in the README.
+
+**Say:**
+
+> “The current chronological synthetic holdout reports 76.65% recall, 0.9308 PR-AUC, and a 0.17% false-positive rate. It also missed 60 fraud examples, so this is not a production-performance claim. Real customer impact and loss reduction still need a governed evaluation with Upay data.”
+
+**Close:**
+
+> “Phase 2 adds persistent behavioral history, explicit model-versus-guardrail outputs, human-readable explanations, protected analyst access, and measurable synthetic validation. Redis and production payment integration remain future work.”

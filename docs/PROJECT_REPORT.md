@@ -1,212 +1,111 @@
-# AI DEV FEST 2026 — DIU CPC × upay
-## Track 01: Trust & Risk Intelligence / Track 06: Operations & Service Intelligence
-# Project Report: Upay SafeSend — AI Transaction Guardian
+# Project Report: Upay SafeSend
 
----
+**AI DEV FEST 2026 — Track 01: Trust & Risk Intelligence / Track 06: Operations & Service Intelligence**
 
-## 1. Introduction
+## 1. Project overview
 
-Mobile Financial Services (MFS) have revolutionized financial inclusion across Bangladesh, serving over 120 million registered accounts. As cashless micro-transactions, merchant payments, and peer-to-peer (P2P) transfers become ubiquitous, digital scams and social engineering fraud have surged proportionally. In conventional MFS architectures, fraud management functions retrospectively: transactions settle instantaneously, and fraud detection flags unauthorized movements hours or days later—often after the victim’s money has already been cashed out via intermediary mule accounts.
+Upay SafeSend is a prototype for screening simulated wallet transfers before a user confirms them. It compares a transfer with sender history, returns separate supervised and anomaly-model outputs, explains triggered signals in English and Bangla, and records a decision for analyst review.
 
-**Upay SafeSend** fundamentally re-engineers this dynamic by introducing a **pre-transaction behavioral intervention layer**. Powered by an ensemble of supervised learning (XGBoost), unsupervised anomaly detection (Isolation Forest), and explainable AI (SHAP), SafeSend computes a multi-dimensional risk score before funds are irreversibly transferred. If high or unusual risk is detected, SafeSend intervenes with plain-language, bilingual (English & Bangla) explanations and actionable recommendations, providing human oversight that empowers customers to halt fraudulent transactions.
+The prototype uses synthetic transactions only. It is not connected to Upay's production wallet service, does not settle payments, and has not measured avoided fraud losses or customer impact.
 
----
+## 2. Problem and intended intervention
 
-## 2. Problem Statement
+A customer who is being pressured to transfer money may benefit from a brief, contextual prompt before confirming. A generic warning does not tell the customer what changed or what safer action to take. SafeSend demonstrates an intervention that names observable details—such as repeated similar transfers, a new recipient, an unusual amount, or recent transaction velocity—and recommends checking the recipient through a trusted channel.
 
-### 2.1 The Challenge
-Every day, Bangladeshi mobile wallet customers face social engineering scams (e.g., lottery scams, fake prize calls, impersonation of family members or law enforcement, and unauthorized account takeovers). Victims are manipulated into completing urgent P2P send-money or cash-out transfers.
-
-### 2.2 Core Friction Points
-1. **Irreversibility of MFS Transfers:** Once confirmed via PIN, transfers settle in seconds with no recall mechanism.
-2. **Victim Blindness:** Scammers create artificial urgency; victims lack independent warning signals at the moment of transfer.
-3. **Black-Box Confusion:** Traditional rule-based alerts are either too opaque ("Transaction blocked - Error 403") or produce high false positives that annoy legitimate users.
-4. **Mule Wallet Dispersion:** Scammers funnel stolen funds through networks of newly created or dormant accounts.
-
-### 2.3 The Hackathon Good Project Test
-- **What happened?** A user requests a high-value transfer (e.g., ৳38,500) to an unverified recipient at an unusual hour (3:00 AM) from a new device.
-- **Why is it risky?** The transfer is 15× higher than the user's habitual average, sent to a first-time recipient, and triggers high anomaly scores across multiple behavioral dimensions.
-- **What should Upay do next?** Intervene pre-transaction, present plain-language explanations in Bangla/English, require biometric or cooling-off verification, and log the incident to the MFS Fraud Operations Console.
-
----
-
-## 3. Proposed Solution: Upay SafeSend
-
-Upay SafeSend operates as an embedded intelligence guardian within the Upay digital wallet.
-
-1. **Pre-Transaction Screening:** Evaluates 9 real-time behavioral features as soon as the customer taps "Continue".
-2. **Dual-Engine AI Ensemble:** 
-   - **XGBoost Classifier:** Detects known fraud, scam, and takeover patterns.
-   - **Isolation Forest:** Catches zero-day, out-of-distribution behavioral anomalies without requiring prior fraud labels.
-3. **Local Explainability (SHAP):** Translates complex tree decisions into transparent feature contributions ("Why was this flagged?").
-4. **Bilingual Human Oversight:** Displays localized Bengali (বাংলা) and English warnings tailored for Bangladesh's diverse demographic.
-5. **Analyst Investigation Copilot:** An operational dashboard enabling MFS risk officers to audit flagged transactions, trace mule networks, and inspect AI decisions.
-
----
-
-## 4. System Architecture
-
-SafeSend follows a decoupled **Input → Intelligence → Action** architectural pattern:
+## 3. Decision flow
 
 ```text
-  [ Upay Mobile Client ] <==== (JSON / REST API) ====> [ Django / DRF Backend ]
-          │                                                       │
-          ├─ Enter Recipient & Amount                             ├─ Context Assembly (Avg Amount, Velocity)
-          ├─ 1-Click Scenarios                                   ├─ Feature Alignment Pipeline
-          └─ Bilingual Interception Modal                         │
-                                                                  ▼
-                                                      [ ML Risk Scoring Engine ]
-                                                                  │
-                                      ┌───────────────────────────┴───────────────────────────┐
-                                      ▼                                                       ▼
-                            [ XGBoost Classifier ]                                 [ Isolation Forest ]
-                            (Supervised Fraud Prob)                                (Unsupervised Anomaly)
-                                      │                                                       │
-                                      └───────────────────────────┬───────────────────────────┘
-                                                                  ▼
-                                                      [ Ensemble Calibrator ]
-                                                      Score = 0.75*XGB + 0.25*IF
-                                                                  │
-                                                                  ▼
-                                                      [ SHAP TreeExplainer ]
-                                                      (Feature Attribution & Impact)
-                                                                  │
-                                                                  ▼
-                                                      [ Response Payload ]
-                                                      • Risk Score & Level (LOW/MED/HIGH)
-                                                      • Bilingual Explanations (EN / BN)
-                                                      • Actionable Recommendations
-                                                      • Investigation Narrative (3 Questions)
+Validated transfer request
+        │
+        ├── Read sender history from the database
+        │      ├── Recent transaction velocity
+        │      ├── Repeated recipient / similar-amount counts
+        │      ├── Time since the prior transfer
+        │      └── Sender amount baseline and recipient frequency
+        ▼
+History-based feature vector
+        ├── XGBoost ─────────────► fraud probability / primary risk score
+        └── Isolation Forest ────► separate anomaly score and flag
+        │
+        ├── Repetition guardrail: third similar transfer in 10 minutes
+        ├── Human-readable reasons and recommended next step
+        ▼
+Customer confirmation → persistent transaction record → analyst review
 ```
 
----
+XGBoost probability is displayed as the primary risk score. The Isolation Forest score is a separate anomaly signal, not a probability and not blended into the fraud probability with a fixed weight. The repeated-transfer guardrail applies a minimum score of 70 and is reported separately from model outputs. Risk levels are LOW below 30, MEDIUM from 30 to below 70, and HIGH from 70 upward.
 
-## 5. Synthetic Dataset Strategy
+## 4. Behavioral feature engineering
 
-Per the hackathon guidelines (Section 11: "Privacy by Design"), zero production customer data was used. A realistic synthetic dataset of **10,000 transactions** was engineered with reproducible random seeding (`np.random.seed(42)`).
+For each attempted transfer, the backend queries previously confirmed rows belonging to the sender. Similar amounts are within ±5% of the attempted amount. The current attempt is excluded from the historical count. Two matching prior transfers plus the current attempt trigger the third-transfer guardrail. Data is persisted in Django's database, and composite indexes support sender/time and sender/recipient/time lookups.
 
-### Dataset Schema (`transactions.csv`)
-| Feature | Type | Range / Values | Description |
-| :--- | :--- | :--- | :--- |
-| `transaction_id` | String | `T00001` - `T10000` | Unique transaction identifier |
-| `user_id` | String | `U0001` - `U0800` | Customer account identifier |
-| `recipient_id` | String | `R0001` - `R1500` | Counterparty wallet identifier |
-| `amount` | Float | ৳90 - ৳60,000 | Current transaction amount |
-| `recipient_new` | Binary | `0` or `1` | First-time transaction to this recipient |
-| `hour` | Integer | `0` - `23` | Hour of the day in 24h format |
-| `device_changed` | Binary | `0` or `1` | Flag for unfamiliar hardware or browser |
-| `location_changed` | Binary | `0` or `1` | Flag for unusual IP/GPS deviation |
-| `transactions_last_1h` | Integer | `0` - `10` | Frequency / velocity within last 60 minutes |
-| `average_transaction_amount` | Float | ৳300 - ৳5,000 | Historical average transaction baseline |
-| `amount_ratio` | Float | `amount / avg_amount` | Multiplier relative to normal spending habit |
-| `account_age_days` | Integer | `10` - `2000` | Account tenure in days |
-| `fraud_label` | Binary | `0` (Normal) or `1` (Fraud) | Ground truth target (8% fraud prevalence) |
+The training and inference schema is shared in `model/feature_schema.py` and contains: amount, amount ratio, hourly and ten-minute counts, same-recipient counts over five and ten minutes, similar-amount count, time since the last transaction, historical average amount, recipient frequency, new-recipient status, hour, device/location signals, and account age.
 
----
+## 5. Synthetic data and privacy
 
-## 6. AI Models & Methodology
+`model/generate_data.py` reproducibly creates 10,000 timestamped synthetic rows. It includes injected repeated-transfer sequences and other synthetic fraud patterns. No customer records, wallet credentials, or production labels are used. Because the target labels and behavior are generated together, the benchmark reflects those synthetic assumptions and is not a claim about real fraud prevalence.
 
-### 6.1 Supervised Model: XGBoost Classifier
-- **Algorithm:** Extreme Gradient Boosting (`XGBClassifier`) with depth 4, 150 estimators, learning rate 0.05, and log-loss objective.
-- **Role:** Learn non-linear feature interactions that characterize scam transfers (e.g., high `amount_ratio` combined with `recipient_new=1` and `device_changed=1`).
+## 6. Models and evaluation method
 
-### 6.2 Unsupervised Model: Isolation Forest
-- **Algorithm:** `IsolationForest(n_estimators=200, contamination=0.05)`
-- **Role:** Trained solely on normal transactions (`fraud_label == 0`). It isolates zero-day anomalies and behavioral shifts that fall outside the customer’s habitual envelope.
+- **XGBoost:** Supervised classifier; 150 estimators, depth 4, learning rate 0.05.
+- **Isolation Forest:** 200 estimators, contamination 0.05, fit to historical normal training rows. Its score is calibrated separately from the fraud probability.
+- **Temporal split:** Sort by timestamp; oldest 8,000 rows train the XGBoost model and newest 2,000 rows are held out. The same historical cutoff is used when fitting the anomaly model.
+- **Metrics threshold:** XGBoost probability threshold 0.50. Operational risk-level boundaries (30 and 70) are distinct from this evaluation threshold.
 
-### 6.3 Ensemble Calibration
-```python
-blended_score = (0.75 * xgb_score) + (0.25 * anomaly_score)
-risk_score = round(max(0.0, min(100.0, blended_score)), 1)
+## 7. Synthetic holdout results
+
+Results generated by `model/train_model.py`:
+
+| Metric | Result |
+| --- | ---: |
+| Training rows | 8,000 |
+| Test rows | 2,000 |
+| Test fraud prevalence | 12.85% |
+| Accuracy | 96.85% |
+| Precision | 98.50% |
+| Recall | 76.65% |
+| F1 | 86.21% |
+| ROC-AUC | 0.9735 |
+| PR-AUC (average precision) | 0.9308 |
+| False-positive rate | 0.17% |
+
+```text
+                 Predicted normal  Predicted fraud
+Actual normal            1740                3
+Actual fraud                60              197
 ```
-- **Risk Tiers:**
-  - `0.0% – 29.9%`: **LOW RISK** (Seamless straight-through processing)
-  - `30.0% – 69.9%`: **MEDIUM RISK** (Soft advisory & recipient double-check)
-  - `70.0% – 100.0%`: **HIGH RISK** (Active intervention, explanation modal, re-authentication)
 
-### 6.4 Explainable AI: SHAP TreeExplainer
-- Uses Shapley Additive exPlanations (`shap.TreeExplainer`) to compute the exact marginal contribution of each feature for the specific transaction.
-- Returns top 5 drivers indicating whether each signal increased or reduced overall risk.
+There are 60 false negatives in this holdout. High recall and PR-AUC remain important goals, but these results do not demonstrate production performance. The exact metrics and split dates are saved in `model/saved_models/evaluation_metrics.json` and should be regenerated whenever the data, feature pipeline, or model changes.
 
----
+## 8. User explanations and analyst operations
 
-## 7. System Features
+The customer screen displays the final risk score and level, fraud probability, anomaly score/status, reasons derived from behavioral features and triggered rules, and a recommended next step. These are not SHAP values or per-instance mathematical attributions.
 
-1. **Simulated Mobile Wallet Client (`/`):**
-   - Realistic Upay user experience with dynamic balance updates.
-   - 1-click preset scenarios for demonstration to judges.
-   - Dual-language toggle (English / বাংলা).
-2. **Risk Interception & Warning Screen (`/warning/`):**
-   - High-impact visual risk gauge and anomaly indicator.
-   - Clear rule-based reasons and SHAP attribution bars.
-   - Full human-in-the-loop control (`[ Cancel ]` or `[ Verify & Complete ]`).
-3. **AI Risk Engine Lab & Simulator (`/simulator/`):**
-   - Interactive parameter tuning (Amount, Hour, Velocity, Account Age, Device).
-   - Real-time model inference and live SHAP bar visualization.
-   - Answers to the 3 hackathon questions.
-4. **Fraud Operations & Analyst Portal (`/analyst/`):**
-   - Real-time transaction stream with risk filters (`HIGH`, `MEDIUM`, `LOW`).
-   - Search across User ID, Recipient, or Transaction ID.
-   - Interactive investigation modal summarizing root causes and next steps.
+The analyst portal is protected by Django authentication and accepts either staff users or users in the `Analyst` group. It displays sender/recipient, amount, model outputs, anomaly status, behavioral flags, risk factors, recommended action, and analyst state. Analysts can persist Pending, Reviewed, Escalated, or Cleared status changes. The analyst monitoring API uses the same role check.
 
----
+## 9. Validation and security controls
 
-## 8. Model Evaluation
+- Positive monetary values are validated as decimals within the transaction storage range.
+- Sender and recipient IDs are format-validated and cannot be identical.
+- The prototype uses an admin-managed active recipient directory; it is not an authoritative wallet directory.
+- The backend recalculates risk during confirmation; client-supplied score and level are not trusted.
+- Browser POST routes use Django CSRF protection. Analyst pages use standard authenticated sessions.
+- The Django signing secret comes from the environment; the Render blueprint generates one.
+- Analyst statistics and transaction-list APIs require analyst/staff permission.
+- Customer identity is still represented by a caller-supplied demo ID. Production requires authenticated Upay identity, a trusted recipient service, payment authorization, rate limiting, and abuse monitoring.
 
-Trained on 8,000 synthetic transactions; validated on 2,000 hold-out test transactions:
+## 10. Business impact measurement
 
-| Metric | Hold-Out Test Score |
-| :--- | :--- |
-| **Accuracy** | 100.00% |
-| **Precision** | 100.00% |
-| **Recall** | 100.00% |
-| **F1 Score** | 100.00% |
-| **ROC AUC** | 1.0000 |
+Current measurable prototype evidence is limited to synthetic holdout metrics, persisted risk decisions, user confirmation status, and analyst review-state counts. No percentage reduction in fraud, loss, disputes, or support load is claimed.
 
-### Confusion Matrix (Test Split: 2,000 Samples)
-- True Normal (TN): 1,849
-- False Normal / False Negative (FN): 0
-- True Fraud (TP): 151
-- False Positive (FP): 0
+Future evaluation should use governed Upay data and controlled deployment cohorts to measure prevented loss, fraud recall, false-positive rate, high-risk step-up completion, customer abandonment, and latency. Any such use requires privacy, fairness, and operational review.
 
-*Note: In synthetic benchmark distributions where injected fraud patterns have distinct multivariate boundaries, tree ensembles achieve near-perfect separation. When moving to production with noisy real-world data, the dual XGBoost + Isolation Forest architecture maintains resilience against adversarial drift.*
+## 11. Limitations and production path
 
----
+The synthetic distribution, recipient directory, sender IDs, and device/location indicators are simulated. There is no biometric verification, transaction settlement, Redis feature store, model-drift monitoring, or production load certification.
 
-## 9. Real-Life Impact & Business Value
+The prototype intentionally uses Django plus a relational database rather than Redis. A future architecture could authenticate an Upay request, update a shared feature store, call a separately deployed inference service, then return a decision for Upay's authorization flow. Redis and high-volume production engineering remain future work.
 
-1. **Scam Prevention:** Prevents irreversible losses before funds leave the victim's wallet.
-2. **Customer Trust:** Customers gain confidence knowing that Upay actively protects their hard-earned money.
-3. **Reduced Dispute & Legal Costs:** Intercepting scams pre-transaction drastically reduces call center dispute volume and police/BFIU complaints.
-4. **Calibrated Friction:** Safe transactions (92%+) face zero additional friction, while risky transfers receive proportional safety checks.
+## 12. Demo sequence
 
----
-
-## 10. Responsible AI & Safety
-
-- **Privacy by Design:** Operates exclusively on behavioral metadata and ratios without storing or leaking sensitive PII.
-- **Transparency & Explainability:** SHAP attribution ensures decisions are never a black box.
-- **Human Oversight:** The AI never unilaterally locks or denies a customer's funds without human recourse; it advises and empowers the user.
-- **Bilingual Inclusivity:** Ensures rural and non-English-speaking users have equal access to security insights.
-
----
-
-## 11. Limitations
-
-1. Relies on synthetic behavioral distributions during prototype stage.
-2. Cold-start accounts with fewer than 3 transactions require conservative default baselines.
-3. Does not yet analyze device biometric telemetry (e.g. gyroscope or typing cadence).
-
----
-
-## 12. Future Roadmap
-
-1. **Graph Neural Networks (GNN):** Transaction graph analysis to map money-mule rings across multiple hops.
-2. **USSD & SMS Voice Alerts:** Bangla voice synthesis for feature-phone users dialing `*268#`.
-3. **Federated Learning:** Cross-institutional scam intelligence sharing in compliance with Bangladesh Bank guidelines.
-
----
-
-## 13. Conclusion
-
-Upay SafeSend transforms mobile financial protection from passive post-mortem tracking into **active, explainable, and compassionate pre-transaction guardianship**. By merging XGBoost, Isolation Forest, and SHAP within an intuitive bilingual interface, SafeSend proves that advanced AI can directly protect millions of digital wallet users across Bangladesh.
+See `docs/VIDEO_DEMO_SCRIPT.md` for the before/after walkthrough. The key Phase 2 demonstration sends two similar transfers to the same active demo recipient, then attempts a third within ten minutes. The final attempt should show the database-derived behavioral reason, model outputs, guardrail, and persisted analyst alert.
