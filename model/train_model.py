@@ -1,74 +1,35 @@
+import json
 from pathlib import Path
 
 import joblib
 import pandas as pd
-
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import (
     accuracy_score,
+    average_precision_score,
+    confusion_matrix,
+    f1_score,
     precision_score,
     recall_score,
-    f1_score,
-    confusion_matrix,
-    classification_report
+    roc_auc_score,
 )
-
 from xgboost import XGBClassifier
 
+from feature_schema import MODEL_FEATURES
 
-# -----------------------------
-# 1. Load dataset
-# -----------------------------
 
 DATA_PATH = Path("model/data/transactions.csv")
-
-df = pd.read_csv(DATA_PATH)
-
-print("Dataset loaded successfully!")
-print("Total rows:", len(df))
-
-
-# -----------------------------
-# 2. Select AI features
-# -----------------------------
-
-FEATURES = [
-    "amount",
-    "recipient_new",
-    "hour",
-    "device_changed",
-    "location_changed",
-    "transactions_last_1h",
-    "average_transaction_amount",
-    "amount_ratio",
-    "account_age_days",
-]
-
+MODEL_DIR = Path("model/saved_models")
 TARGET = "fraud_label"
 
-X = df[FEATURES]
-y = df[TARGET]
+df = pd.read_csv(DATA_PATH, parse_dates=["created_at"]).sort_values("created_at")
+split_index = int(len(df) * 0.8)
+train_df = df.iloc[:split_index]
+test_df = df.iloc[split_index:]
 
-
-# -----------------------------
-# 3. Train / Test split
-# -----------------------------
-
-X_train, X_test, y_train, y_test = train_test_split(
-    X,
-    y,
-    test_size=0.20,
-    random_state=42,
-    stratify=y
-)
-
-print("Training rows:", len(X_train))
-print("Testing rows:", len(X_test))
-
-
-# -----------------------------
-# 4. Train XGBoost model
-# -----------------------------
+X_train = train_df[MODEL_FEATURES]
+y_train = train_df[TARGET]
+X_test = test_df[MODEL_FEATURES]
+y_test = test_df[TARGET]
 
 model = XGBClassifier(
     n_estimators=150,
@@ -77,61 +38,41 @@ model = XGBClassifier(
     subsample=0.8,
     colsample_bytree=0.8,
     eval_metric="logloss",
-    random_state=42
+    random_state=42,
 )
-
 model.fit(X_train, y_train)
 
-print("\nModel training completed!")
+probabilities = model.predict_proba(X_test)[:, 1]
+predictions = (probabilities >= 0.5).astype(int)
+tn, fp, fn, tp = confusion_matrix(y_test, predictions, labels=[0, 1]).ravel()
 
+metrics = {
+    "evaluation": "chronological_holdout",
+    "training_rows": len(train_df),
+    "testing_rows": len(test_df),
+    "training_start": train_df["created_at"].min().isoformat(),
+    "training_end": train_df["created_at"].max().isoformat(),
+    "testing_start": test_df["created_at"].min().isoformat(),
+    "testing_end": test_df["created_at"].max().isoformat(),
+    "fraud_prevalence": float(y_test.mean()),
+    "threshold": 0.5,
+    "accuracy": float(accuracy_score(y_test, predictions)),
+    "precision": float(precision_score(y_test, predictions, zero_division=0)),
+    "recall": float(recall_score(y_test, predictions, zero_division=0)),
+    "f1": float(f1_score(y_test, predictions, zero_division=0)),
+    "roc_auc": float(roc_auc_score(y_test, probabilities)),
+    "pr_auc": float(average_precision_score(y_test, probabilities)),
+    "false_positive_rate": float(fp / (fp + tn)) if (fp + tn) else 0.0,
+    "confusion_matrix": [[int(tn), int(fp)], [int(fn), int(tp)]],
+}
 
-# -----------------------------
-# 5. Predictions
-# -----------------------------
-
-predictions = model.predict(X_test)
-
-
-# -----------------------------
-# 6. Evaluation
-# -----------------------------
-
-accuracy = accuracy_score(y_test, predictions)
-precision = precision_score(y_test, predictions)
-recall = recall_score(y_test, predictions)
-f1 = f1_score(y_test, predictions)
-
-print("\n------ MODEL RESULTS ------")
-
-print(f"Accuracy:  {accuracy:.4f}")
-print(f"Precision: {precision:.4f}")
-print(f"Recall:    {recall:.4f}")
-print(f"F1 Score:  {f1:.4f}")
-
-print("\nConfusion Matrix:")
-print(confusion_matrix(y_test, predictions))
-
-print("\nClassification Report:")
-print(classification_report(y_test, predictions))
-
-
-# -----------------------------
-# 7. Save trained model
-# -----------------------------
-
-MODEL_DIR = Path("model/saved_models")
 MODEL_DIR.mkdir(parents=True, exist_ok=True)
+joblib.dump(model, MODEL_DIR / "fraud_xgboost.pkl")
+joblib.dump(MODEL_FEATURES, MODEL_DIR / "features.pkl")
+(MODEL_DIR / "evaluation_metrics.json").write_text(
+    json.dumps(metrics, indent=2) + "\n",
+    encoding="utf-8",
+)
 
-MODEL_PATH = MODEL_DIR / "fraud_xgboost.pkl"
-
-joblib.dump(model, MODEL_PATH)
-
-
-# Save feature names too
-FEATURE_PATH = MODEL_DIR / "features.pkl"
-
-joblib.dump(FEATURES, FEATURE_PATH)
-
-
-print("\nModel saved successfully!")
-print("Location:", MODEL_PATH)
+print(json.dumps(metrics, indent=2))
+print(f"Saved model and evaluation metrics under {MODEL_DIR}")

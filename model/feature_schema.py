@@ -1,0 +1,17 @@
+MODEL_FEATURES = [
+    "amount",
+    "recipient_new",
+    "hour",
+    "device_changed",
+    "location_changed",
+    "transactions_last_1h",
+    "average_transaction_amount",
+    "amount_ratio",
+    "account_age_days",
+    "total_transactions_10m",
+    "same_receiver_count_5m",
+    "same_receiver_count_10m",
+    "similar_amount_count_10m",
+    "time_since_last_transaction",
+    "recipient_frequency",
+]
