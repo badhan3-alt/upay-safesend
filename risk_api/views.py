@@ -1,11 +1,15 @@
 from datetime import timedelta
 from decimal import Decimal
+from math import exp
 from pathlib import Path
+import json
 import uuid
 
 from django.conf import settings
 from django.db.models import Avg, Sum
 from django.utils import timezone
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_protect
 import joblib
 import pandas as pd
 from rest_framework import generics, status
@@ -14,6 +18,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from transactions.models import Transaction
+from model.feature_schema import MODEL_FEATURES
+from .permissions import IsAnalyst
 from .serializers import (
     ConfirmTransactionSerializer,
     RiskPredictionSerializer,
@@ -28,53 +34,18 @@ MODEL_DIR = Path(settings.BASE_DIR) / "model" / "saved_models"
 MODEL_PATH = MODEL_DIR / "fraud_xgboost.pkl"
 FEATURE_PATH = MODEL_DIR / "features.pkl"
 ANOMALY_MODEL_PATH = MODEL_DIR / "isolation_forest.pkl"
+ANOMALY_CALIBRATION_PATH = MODEL_DIR / "anomaly_calibration.json"
 
-# Load models safely
-try:
-    xgb_model = joblib.load(MODEL_PATH)
-    features_list = joblib.load(FEATURE_PATH)
-    anomaly_model = joblib.load(ANOMALY_MODEL_PATH)
-except Exception as e:
-    print(f"Warning: Error loading ML models: {e}")
-    xgb_model = None
-    features_list = [
-        "amount",
-        "recipient_new",
-        "hour",
-        "device_changed",
-        "location_changed",
-        "transactions_last_1h",
-        "average_transaction_amount",
-        "amount_ratio",
-        "account_age_days",
-    ]
-    anomaly_model = None
-
-
-# Friendly labels for frontend / report
-FEATURE_NAMES_EN = {
-    "amount": "Transaction Amount",
-    "recipient_new": "New Recipient",
-    "hour": "Transaction Time of Day",
-    "device_changed": "Device Change",
-    "location_changed": "Location Change",
-    "transactions_last_1h": "Hourly Velocity / Frequency",
-    "average_transaction_amount": "User Average Amount",
-    "amount_ratio": "Spike vs Normal Spending",
-    "account_age_days": "Account Age",
-}
-
-FEATURE_NAMES_BN = {
-    "amount": "লেনদেনের পরিমাণ",
-    "recipient_new": "নতুন প্রাপক",
-    "hour": "লেনদেনের সময়",
-    "device_changed": "ডিভাইস পরিবর্তন",
-    "location_changed": "অবস্থান পরিবর্তন",
-    "transactions_last_1h": "গত এক ঘণ্টায় লেনদেনের সংখ্যা",
-    "average_transaction_amount": "গড় লেনদেনের পরিমাণ",
-    "amount_ratio": "স্বাভাবিকের চেয়ে তারতম্য",
-    "account_age_days": "অ্যাকাউন্টের বয়স",
-}
+xgb_model = joblib.load(MODEL_PATH)
+features_list = joblib.load(FEATURE_PATH)
+anomaly_model = joblib.load(ANOMALY_MODEL_PATH)
+anomaly_scale = json.loads(
+    ANOMALY_CALIBRATION_PATH.read_text(encoding="utf-8")
+)["normal_positive_decision_p05"]
+if features_list != MODEL_FEATURES:
+    raise RuntimeError(
+        "Saved model features do not match model/feature_schema.py; retrain the models."
+    )
 
 
 # ============================================================
@@ -87,6 +58,7 @@ def detect_repeated_transactions(
     amount,
     window_minutes=10,
     similarity_tolerance=0.05,
+    now=None,
 ):
     """
     Detect repeated or very similar transfers from the same user
@@ -96,47 +68,79 @@ def detect_repeated_transactions(
     matching past transactions means the current attempt would be
     the 3rd similar transfer in the window.
     """
-    now = timezone.now()
+    now = now or timezone.now()
     window_start = now - timedelta(minutes=window_minutes)
+    five_minutes_ago = now - timedelta(minutes=5)
+    one_hour_ago = now - timedelta(hours=1)
 
     amount_decimal = Decimal(str(amount))
     tolerance = Decimal(str(similarity_tolerance))
     lower_bound = amount_decimal * (Decimal("1") - tolerance)
     upper_bound = amount_decimal * (Decimal("1") + tolerance)
 
-    recent_same_recipient = Transaction.objects.filter(
+    past_txns = Transaction.objects.filter(
         user_id=user_id,
-        recipient_id=recipient_id,
-        created_at__gte=window_start,
+        created_at__lt=now,
     )
-
-    same_recipient_count = recent_same_recipient.count()
-
+    recent_10m = past_txns.filter(created_at__gte=window_start)
+    recent_5m = past_txns.filter(created_at__gte=five_minutes_ago)
+    recent_same_recipient = recent_10m.filter(recipient_id=recipient_id)
     similar_amount_count = recent_same_recipient.filter(
         amount__gte=lower_bound,
         amount__lte=upper_bound,
     ).count()
+    last_transaction_at = past_txns.order_by("-created_at").values_list(
+        "created_at", flat=True
+    ).first()
+    time_since_last_transaction = (
+        max((now - last_transaction_at).total_seconds() / 60, 0)
+        if last_transaction_at
+        else 1440.0
+    )
+    average_amount = past_txns.aggregate(average=Avg("amount"))["average"]
+    first_transaction_at = past_txns.order_by("created_at").values_list(
+        "created_at", flat=True
+    ).first()
 
-    # Trigger on the third similar transfer attempt within the window.
+    same_recipient_count_10m = recent_same_recipient.count()
     repeated_pattern_detected = similar_amount_count >= 2
 
     return {
         "window_minutes": window_minutes,
-        "same_recipient_count": same_recipient_count,
+        "total_transactions_10m": recent_10m.count(),
+        "same_receiver_count_5m": recent_5m.filter(
+            recipient_id=recipient_id
+        ).count(),
+        "same_receiver_count_10m": same_recipient_count_10m,
+        "same_recipient_count_10m": same_recipient_count_10m,
+        "same_recipient_count": same_recipient_count_10m,
         "similar_amount_count": similar_amount_count,
+        "similar_amount_count_10m": similar_amount_count,
+        "transactions_last_1h": past_txns.filter(
+            created_at__gte=one_hour_ago
+        ).count(),
+        "time_since_last_transaction": round(time_since_last_transaction, 2),
+        "recipient_frequency": past_txns.filter(
+            recipient_id=recipient_id
+        ).count(),
+        "average_transaction_amount": float(average_amount or 2500.0),
+        "account_age_days": (
+            max(10, (now - first_transaction_at).days)
+            if first_transaction_at
+            else 210
+        ),
         "similarity_tolerance_percent": round(similarity_tolerance * 100, 1),
         "repeated_pattern_detected": repeated_pattern_detected,
     }
 
 
 # ============================================================
-# CORE RISK ENGINE (Ensemble: XGBoost + Isolation Forest + Lightweight Explainability)
+# CORE RISK ENGINE (XGBoost + Isolation Forest + rule-based safety guardrails)
 # ============================================================
 
 def evaluate_transaction_risk(feature_data: dict) -> dict:
     """
-    Computes ensemble risk score, behavioral anomaly flag,
-    lightweight explainability, bilingual reasons, and recommendations.
+    Computes model outputs, a distinct repetition guardrail, and explanations.
     """
     amount = float(feature_data.get("amount", 0))
     avg_amount = float(feature_data.get("average_transaction_amount", 2500))
@@ -151,74 +155,60 @@ def evaluate_transaction_risk(feature_data: dict) -> dict:
     tx_last_1h = int(feature_data.get("transactions_last_1h", 1))
     account_age = int(feature_data.get("account_age_days", 180))
 
-    # Behavioral velocity signals are kept separate from the trained model
-    # so the existing XGBoost / Isolation Forest feature schema is not broken.
+    total_transactions_10m = int(feature_data.get("total_transactions_10m", 0))
+    same_recipient_count_5m = int(feature_data.get("same_receiver_count_5m", 0))
     similar_amount_count_10m = int(feature_data.get("similar_amount_count_10m", 0))
-    same_recipient_count_10m = int(feature_data.get("same_recipient_count_10m", 0))
+    same_recipient_count_10m = int(
+        feature_data.get("same_receiver_count_10m", 0)
+    )
+    time_since_last_transaction = float(
+        feature_data.get("time_since_last_transaction", 1440)
+    )
+    recipient_frequency = int(feature_data.get("recipient_frequency", 0))
     repeated_pattern_detected = bool(
-        feature_data.get("repeated_pattern_detected", False)
+        feature_data.get(
+            "repeated_pattern_detected",
+            similar_amount_count_10m >= 2,
+        )
     )
 
+    feature_values = {
+        "amount": amount,
+        "recipient_new": recipient_new,
+        "hour": hour,
+        "device_changed": device_changed,
+        "location_changed": location_changed,
+        "transactions_last_1h": tx_last_1h,
+        "average_transaction_amount": avg_amount,
+        "amount_ratio": amount_ratio,
+        "account_age_days": account_age,
+        "total_transactions_10m": total_transactions_10m,
+        "same_receiver_count_5m": same_recipient_count_5m,
+        "same_receiver_count_10m": same_recipient_count_10m,
+        "similar_amount_count_10m": similar_amount_count_10m,
+        "time_since_last_transaction": time_since_last_transaction,
+        "recipient_frequency": recipient_frequency,
+    }
     transaction_df = pd.DataFrame(
-        [
-            {
-                "amount": amount,
-                "recipient_new": recipient_new,
-                "hour": hour,
-                "device_changed": device_changed,
-                "location_changed": location_changed,
-                "transactions_last_1h": tx_last_1h,
-                "average_transaction_amount": avg_amount,
-                "amount_ratio": amount_ratio,
-                "account_age_days": account_age,
-            }
-        ]
+        [{feature: feature_values[feature] for feature in features_list}]
     )
 
-    # Reorder features exactly as trained
-    transaction_df = transaction_df[features_list]
+    fraud_prob = float(xgb_model.predict_proba(transaction_df)[0][1])
+    xgb_score = fraud_prob * 100.0
 
-    # 1. XGBoost Supervised Classification
-    if xgb_model is not None:
-        try:
-            fraud_prob = float(xgb_model.predict_proba(transaction_df)[0][1])
-            xgb_score = fraud_prob * 100.0
-        except Exception:
-            fraud_prob = 0.05
-            xgb_score = 5.0
+    anomaly_decision = float(anomaly_model.decision_function(transaction_df)[0])
+    is_anomaly = bool(anomaly_decision < 0)
+    if is_anomaly:
+        anomaly_score = 50.0 + 50.0 * (1.0 - exp(anomaly_decision / anomaly_scale))
     else:
-        fraud_prob = 0.05
-        xgb_score = 5.0
+        anomaly_score = 50.0 * exp(-anomaly_decision / anomaly_scale)
+    anomaly_score = max(0.0, min(100.0, anomaly_score))
 
-    # 2. Isolation Forest Unsupervised Anomaly Detection
-    is_anomaly = False
-    if anomaly_model is not None:
-        try:
-            anomaly_pred = anomaly_model.predict(transaction_df)[0]
-            # -1 = anomaly, 1 = normal
-            is_anomaly = bool(anomaly_pred == -1)
-        except Exception:
-            is_anomaly = False
-
-    anomaly_score = 100.0 if is_anomaly else 0.0
-
-    # 3. Blended Ensemble Risk Score (75% XGBoost + 25% Isolation Forest)
-    blended_score = (0.75 * xgb_score) + (0.25 * anomaly_score)
-
-    # Explicit behavioral velocity signal requested during Phase 1 review.
-    # This is intentionally kept separate from the trained ML score so the
-    # prototype remains transparent about what comes from ML vs. safety logic.
-    behavioral_risk_adjustment = 0.0
-    if repeated_pattern_detected:
-        if similar_amount_count_10m >= 4:
-            behavioral_risk_adjustment = 25.0
-        elif similar_amount_count_10m >= 2:
-            behavioral_risk_adjustment = 15.0
-
-    risk_score = round(
-        max(0.0, min(100.0, blended_score + behavioral_risk_adjustment)),
-        1,
-    )
+    # The supervised probability is the risk score; anomaly output stays a
+    # separate corroborating signal instead of being mixed through a fixed weight.
+    ai_risk_score = xgb_score
+    risk_floor = 70.0 if repeated_pattern_detected else 0.0
+    risk_score = round(max(ai_risk_score, risk_floor), 1)
 
     # 4. Risk Level Calibration
     if risk_score >= 70.0:
@@ -263,11 +253,20 @@ def evaluate_transaction_risk(feature_data: dict) -> dict:
             f"গত এক ঘণ্টায় {tx_last_1h}টি লেনদেন হয়েছে"
         )
 
+    if total_transactions_10m >= 3:
+        reasons_en.append(
+            f"This transfer would bring the 10-minute transaction count to "
+            f"{total_transactions_10m + 1}"
+        )
+        reasons_bn.append(
+            f"এই লেনদেনসহ ১০ মিনিটে মোট লেনদেন হবে {total_transactions_10m + 1}টি"
+        )
+
     if repeated_pattern_detected:
         total_with_current = similar_amount_count_10m + 1
         reasons_en.append(
-            f"Repeated transaction pattern: {total_with_current} similar transfers "
-            f"to this recipient within 10 minutes"
+            f"Repeated transaction pattern detected: {total_with_current} similar "
+            f"transfers were sent to this recipient within 10 minutes."
         )
         reasons_bn.append(
             f"পুনরাবৃত্ত লেনদেন শনাক্ত হয়েছে: ১০ মিনিটের মধ্যে এই প্রাপকের কাছে "
@@ -285,38 +284,6 @@ def evaluate_transaction_risk(feature_data: dict) -> dict:
     if not reasons_en:
         reasons_en.append("This transfer looks similar to the account’s usual activity")
         reasons_bn.append("লেনদেনটি অ্যাকাউন্টটির নিয়মিত ব্যবহারের মতো")
-
-    # 6. Lightweight Feature Attribution
-    # Keeps the same response structure as the former SHAP output so the
-    # frontend can continue to use ai_explanation without changes.
-    feature_contributions = {
-        "amount": min(max((amount_ratio - 1.0) * 0.18, 0.0), 1.0),
-        "recipient_new": 0.35 if recipient_new else -0.05,
-        "hour": 0.25 if (hour <= 5 or hour >= 23) else -0.02,
-        "device_changed": 0.30 if device_changed else -0.03,
-        "location_changed": 0.25 if location_changed else -0.03,
-        "transactions_last_1h": min(max((tx_last_1h - 1) * 0.10, 0.0), 0.6),
-        "average_transaction_amount": -0.02,
-        "amount_ratio": min(max((amount_ratio - 1.0) * 0.30, 0.0), 1.2),
-        "account_age_days": 0.15 if account_age < 30 else -0.04,
-    }
-
-    ai_explanation = []
-    for feat in features_list:
-        val_flt = float(feature_contributions.get(feat, 0.0))
-        ai_explanation.append(
-            {
-                "feature_key": feat,
-                "feature": FEATURE_NAMES_EN.get(feat, feat),
-                "feature_bn": FEATURE_NAMES_BN.get(feat, feat),
-                "contribution": round(val_flt, 4),
-                "effect": "increases risk" if val_flt > 0 else "reduces risk",
-                "effect_bn": "ঝুঁকি বাড়ায়" if val_flt > 0 else "ঝুঁকি কমায়",
-            }
-        )
-
-    ai_explanation.sort(key=lambda x: abs(x["contribution"]), reverse=True)
-    ai_explanation = ai_explanation[:5]
 
     # 7. Actionable Recommendations (Good Project Test: What should Upay do next?)
     if risk_level == "HIGH":
@@ -373,16 +340,25 @@ def evaluate_transaction_risk(feature_data: dict) -> dict:
     return {
         "risk_score": risk_score,
         "risk_level": risk_level,
-        "base_ml_risk_score": round(blended_score, 1),
-        "behavioral_risk_adjustment": round(behavioral_risk_adjustment, 1),
+        "ai_risk_score": round(ai_risk_score, 1),
         "xgboost_score": round(xgb_score, 2),
         "fraud_probability": round(fraud_prob, 4),
         "behavioral_anomaly": is_anomaly,
+        "anomaly_score": round(anomaly_score, 2),
+        "prediction_components": {
+            "xgboost_fraud_probability": round(fraud_prob, 4),
+            "isolation_forest_anomaly_score": round(anomaly_score, 2),
+            "ai_risk_score": round(ai_risk_score, 1),
+        },
+        "safety_rules": {
+            "repeated_transaction_detected": repeated_pattern_detected,
+            "risk_score_floor": risk_floor,
+        },
         "reasons": reasons_en,
         "reasons_bn": reasons_bn,
+        "risk_factors": reasons_en,
         "recommendation": recommendation_en,
         "recommendation_bn": recommendation_bn,
-        "ai_explanation": ai_explanation,
         "features_analyzed": {
             "amount": amount,
             "recipient_new": bool(recipient_new),
@@ -393,14 +369,21 @@ def evaluate_transaction_risk(feature_data: dict) -> dict:
             "average_transaction_amount": round(avg_amount, 2),
             "amount_ratio": amount_ratio,
             "account_age_days": account_age,
+            "total_transactions_10m": total_transactions_10m,
+            "same_receiver_count_5m": same_recipient_count_5m,
             "same_recipient_transactions_10m": same_recipient_count_10m,
             "similar_amount_transactions_10m": similar_amount_count_10m,
+            "time_since_last_transaction": time_since_last_transaction,
+            "recipient_frequency": recipient_frequency,
             "repeated_pattern_detected": repeated_pattern_detected,
         },
         "behavioral_analysis": {
             "window_minutes": 10,
+            "total_transactions_10m": total_transactions_10m,
+            "same_receiver_count_5m": same_recipient_count_5m,
             "same_recipient_transactions_10m": same_recipient_count_10m,
             "similar_amount_transactions_10m": similar_amount_count_10m,
+            "time_since_last_transaction": time_since_last_transaction,
             "repeated_pattern_detected": repeated_pattern_detected,
         },
         "investigation": {
@@ -422,6 +405,7 @@ def evaluate_transaction_risk(feature_data: dict) -> dict:
 # API VIEWS
 # ============================================================
 
+@method_decorator(csrf_protect, name="dispatch")
 class RiskPredictionView(generics.GenericAPIView):
     """
     Direct feature risk prediction API for simulators, test suites, and third-party integrations.
@@ -437,6 +421,7 @@ class RiskPredictionView(generics.GenericAPIView):
         return Response(result, status=status.HTTP_200_OK)
 
 
+@method_decorator(csrf_protect, name="dispatch")
 class SendMoneyRiskView(generics.GenericAPIView):
     """
     Context-aware risk check API for the Upay mobile app.
@@ -454,60 +439,30 @@ class SendMoneyRiskView(generics.GenericAPIView):
         user_id = data["user_id"]
         recipient_id = data["recipient_id"]
         amount = float(data["amount"])
-
-        # Fetch past transactions for user to build real behavioral context
-        past_txns = Transaction.objects.filter(user_id=user_id)
-        has_history = past_txns.exists()
-
-        if has_history:
-            avg_amount = past_txns.aggregate(Avg("amount"))["amount__avg"] or 2500.0
-            avg_amount = float(avg_amount)
-            recipient_new = not past_txns.filter(recipient_id=recipient_id).exists()
-            one_hour_ago = timezone.now() - timedelta(hours=1)
-            tx_last_1h = past_txns.filter(created_at__gte=one_hour_ago).count()
-            earliest_txn = past_txns.order_by("created_at").first()
-            account_age_days = max(10, (timezone.now() - earliest_txn.created_at).days)
-        else:
-            # Synthetic default profile for demo user
-            avg_amount = 2500.0
-            recipient_new = True
-            tx_last_1h = 0
-            account_age_days = 210
+        behavior = detect_repeated_transactions(
+            user_id=user_id,
+            recipient_id=recipient_id,
+            amount=amount,
+        )
 
         # Determine transaction hour
         if data.get("hour") is not None:
             hour = data["hour"]
         else:
-            # Use current local time hour
             hour = timezone.localtime().hour
 
         device_changed = data.get("device_changed", False)
         location_changed = data.get("location_changed", False)
 
-        # Step 1 improvement: detect repeated / similar-value transfers
-        # before the current transaction is confirmed and saved.
-        behavior = detect_repeated_transactions(
-            user_id=user_id,
-            recipient_id=recipient_id,
-            amount=amount,
-            window_minutes=10,
-            similarity_tolerance=0.05,
-        )
-
         feature_data = {
+            **behavior,
             "user_id": user_id,
             "recipient_id": recipient_id,
             "amount": amount,
-            "recipient_new": recipient_new,
+            "recipient_new": behavior["recipient_frequency"] == 0,
             "hour": hour,
             "device_changed": device_changed,
             "location_changed": location_changed,
-            "transactions_last_1h": tx_last_1h,
-            "average_transaction_amount": avg_amount,
-            "account_age_days": account_age_days,
-            "same_recipient_count_10m": behavior["same_recipient_count"],
-            "similar_amount_count_10m": behavior["similar_amount_count"],
-            "repeated_pattern_detected": behavior["repeated_pattern_detected"],
         }
 
         result = evaluate_transaction_risk(feature_data)
@@ -518,6 +473,7 @@ class SendMoneyRiskView(generics.GenericAPIView):
         return Response(result, status=status.HTTP_200_OK)
 
 
+@method_decorator(csrf_protect, name="dispatch")
 class ConfirmTransactionView(generics.GenericAPIView):
     """
     Records and finalizes the transaction in the database once the user confirms or verifies it.
@@ -532,28 +488,52 @@ class ConfirmTransactionView(generics.GenericAPIView):
         data = serializer.validated_data
 
         txn_id = f"UPAY-{uuid.uuid4().hex[:8].upper()}"
-
-        past_txns = Transaction.objects.filter(user_id=data["user_id"])
-        avg_amount = past_txns.aggregate(Avg("amount"))["amount__avg"] or 2500.0
-        one_hour_ago = timezone.now() - timedelta(hours=1)
-        tx_last_1h = past_txns.filter(created_at__gte=one_hour_ago).count()
-
-        is_suspicious = data["risk_score"] >= 70.0
+        behavior = detect_repeated_transactions(
+            user_id=data["user_id"],
+            recipient_id=data["recipient_id"],
+            amount=data["amount"],
+        )
+        feature_data = {
+            **behavior,
+            "user_id": data["user_id"],
+            "recipient_id": data["recipient_id"],
+            "amount": float(data["amount"]),
+            "recipient_new": behavior["recipient_frequency"] == 0,
+            "hour": (
+                data["hour"]
+                if data["hour"] is not None
+                else timezone.localtime().hour
+            ),
+            "device_changed": data["device_changed"],
+            "location_changed": data["location_changed"],
+        }
+        result = evaluate_transaction_risk(feature_data)
+        analyzed = result["features_analyzed"]
 
         txn = Transaction.objects.create(
             transaction_id=txn_id,
             user_id=data["user_id"],
             recipient_id=data["recipient_id"],
             amount=data["amount"],
-            recipient_new=data["recipient_new"],
+            recipient_new=analyzed["recipient_new"],
             device_changed=data["device_changed"],
             location_changed=data["location_changed"],
-            transactions_last_1h=tx_last_1h,
-            average_transaction_amount=avg_amount,
-            account_age_days=180,
-            risk_score=data["risk_score"],
-            risk_level=data["risk_level"],
-            is_suspicious=is_suspicious,
+            transactions_last_1h=analyzed["transactions_last_1h"],
+            average_transaction_amount=analyzed["average_transaction_amount"],
+            account_age_days=analyzed["account_age_days"],
+            risk_score=result["risk_score"],
+            fraud_probability=result["fraud_probability"],
+            anomaly_score=result["anomaly_score"],
+            risk_level=result["risk_level"],
+            is_suspicious=result["risk_level"] == "HIGH",
+            behavioral_anomaly=result["behavioral_anomaly"],
+            behavioral_features=analyzed,
+            risk_factors=result["risk_factors"],
+            recommendation={
+                "en": result["recommendation"],
+                "bn": result["recommendation_bn"],
+            },
+            user_verified=data["verified_by_user"],
         )
 
         return Response(
@@ -566,6 +546,9 @@ class ConfirmTransactionView(generics.GenericAPIView):
                 "recipient_id": txn.recipient_id,
                 "risk_score": txn.risk_score,
                 "risk_level": txn.risk_level,
+                "fraud_probability": txn.fraud_probability,
+                "anomaly_score": txn.anomaly_score,
+                "behavioral_analysis": result["behavioral_analysis"],
                 "timestamp": txn.created_at.strftime("%Y-%m-%d %H:%M:%S"),
             },
             status=status.HTTP_201_CREATED,
@@ -577,8 +560,7 @@ class TransactionStatsView(APIView):
     Returns live statistics for the Analyst Operations Dashboard:
     Total count, risk breakdown, high-risk volume, and recent transactions.
     """
-    authentication_classes = []
-    permission_classes = [AllowAny]
+    permission_classes = [IsAnalyst]
 
     def get(self, request):
         total_txns = Transaction.objects.count()
@@ -604,12 +586,19 @@ class TransactionStatsView(APIView):
                 "recipient_id",
                 "amount",
                 "risk_score",
+                "fraud_probability",
+                "anomaly_score",
+                "behavioral_anomaly",
                 "risk_level",
                 "is_suspicious",
+                "analyst_status",
                 "created_at",
                 "recipient_new",
                 "device_changed",
                 "location_changed",
+                "behavioral_features",
+                "risk_factors",
+                "recommendation",
             )
         )
 
