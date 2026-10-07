@@ -868,9 +868,15 @@
 
                 <!-- Form -->
                 <form id="sendForm">
+                    {% csrf_token %}
                     <div class="form-group">
                         <label for="recipient" data-i18n="lbl_recipient">Who are you sending money to?</label>
-                        <input type="text" id="recipient" placeholder="e.g. 01711223344 or R0101" required>
+                        <input type="text" id="recipient" list="recipientDirectory" placeholder="Choose an active demo recipient" required>
+                        <datalist id="recipientDirectory">
+                            {% for recipient_id in recipients %}
+                                <option value="{{ recipient_id }}"></option>
+                            {% endfor %}
+                        </datalist>
                     </div>
 
                     <div class="form-group">
@@ -1069,6 +1075,7 @@
         const form = document.getElementById("sendForm");
         const continueBtn = document.getElementById("continueBtn");
         const loader = document.getElementById("loader");
+        const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
 
         form.addEventListener("submit", async function(e) {
             e.preventDefault();
@@ -1097,7 +1104,10 @@
             try {
                 const response = await fetch("/api/risk/send-money/", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": csrfToken
+                    },
                     body: JSON.stringify(payload)
                 });
 
@@ -1134,11 +1144,15 @@
             try {
                 const confRes = await fetch("/api/risk/confirm/", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": csrfToken
+                    },
                     body: JSON.stringify({
                         user_id: result.user_id,
                         recipient_id: result.recipient_id,
                         amount: result.amount,
+                        hour: result.features_analyzed.hour,
                         risk_score: result.risk_score,
                         risk_level: result.risk_level,
                         recipient_new: result.features_analyzed.recipient_new,

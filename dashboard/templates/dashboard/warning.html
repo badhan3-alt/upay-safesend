@@ -234,46 +234,13 @@
             line-height: 1.4;
         }
 
-        /* SHAP Feature Contribution Bars */
-        .shap-container {
+        .explanation-signals {
             background: #f8fafc;
             border-radius: 14px;
             padding: 16px;
             margin-bottom: 20px;
             border: 1px solid #e2e8f0;
         }
-
-        .shap-row {
-            margin-bottom: 10px;
-        }
-
-        .shap-row:last-child {
-            margin-bottom: 0;
-        }
-
-        .shap-labels {
-            display: flex;
-            justify-content: space-between;
-            font-size: 12px;
-            font-weight: 600;
-            margin-bottom: 4px;
-        }
-
-        .shap-bar-bg {
-            height: 7px;
-            background: #e2e8f0;
-            border-radius: 4px;
-            overflow: hidden;
-            position: relative;
-        }
-
-        .shap-bar-fill {
-            height: 100%;
-            border-radius: 4px;
-        }
-
-        .shap-bar-fill.pos { background: var(--upay-red); }
-        .shap-bar-fill.neg { background: var(--upay-green); }
 
         /* Recommendation Box */
         .recommendation-box {
@@ -378,7 +345,6 @@
         }
 
         .summary-row strong,
-        .shap-labels span,
         .modal-content strong {
             min-width: 0;
             overflow-wrap: anywhere;
@@ -447,14 +413,6 @@
                 text-align: right;
             }
 
-            .shap-labels {
-                gap: 8px;
-            }
-
-            .shap-labels span:last-child {
-                text-align: right;
-            }
-
             .btn-cancel,
             .btn-override {
                 line-height: 1.35;
@@ -485,8 +443,8 @@
                 grid-template-columns: repeat(2, minmax(0, 1fr));
                 grid-template-areas:
                     "gauge summary"
-                    "reasons-heading shap-heading"
-                    "reasons shap"
+                    "reasons-heading explanation-heading"
+                    "reasons explanation"
                     "recommendation recommendation"
                     "actions actions";
                 column-gap: 20px;
@@ -505,8 +463,8 @@
             .content > :nth-child(2) { grid-area: summary; }
             .content > :nth-child(3) { grid-area: reasons-heading; }
             .content > :nth-child(4) { grid-area: reasons; }
-            .content > :nth-child(5) { grid-area: shap-heading; }
-            .content > :nth-child(6) { grid-area: shap; }
+            .content > :nth-child(5) { grid-area: explanation-heading; }
+            .content > :nth-child(6) { grid-area: explanation; }
             .content > :nth-child(7) { grid-area: recommendation; }
             .content > :nth-child(8) { grid-area: actions; }
         }
@@ -581,7 +539,7 @@
         }
 
         .summary-box,
-        .shap-container {
+        .explanation-signals {
             background: #f8fafb;
             border-color: #e7edf1;
             border-radius: 16px;
@@ -668,7 +626,7 @@
 
         .risk-gauge-card > div:first-child,
         #anomalyBadge,
-        .shap-container > div:first-child {
+        .explanation-signals > div:first-child {
             font-size: 14px !important;
         }
 
@@ -693,10 +651,6 @@
             font-size: 16px;
         }
 
-        .shap-labels {
-            font-size: 14px;
-        }
-
         .receipt-badge {
             font-size: 13px;
         }
@@ -712,6 +666,7 @@
     </style>
 </head>
 <body>
+    <form id="csrfTokenForm" hidden>{% csrf_token %}</form>
 
     <!-- Hackathon Nav -->
     <nav class="top-nav">
@@ -748,6 +703,13 @@
                     <div id="anomalyBadge" style="margin-top:8px; font-size:11px; color:#b91c1c; font-weight:600; display:none;">
                         ⚡ This transfer looks different from usual
                     </div>
+                    <div style="margin-top:10px; font-size:12px; color:var(--text-muted);">
+                        <span data-i18n="fraud_probability_label">Fraud probability</span>:
+                        <strong id="fraudProbability">--</strong>
+                        &nbsp;·&nbsp;
+                        <span data-i18n="anomaly_score_label">Anomaly score</span>:
+                        <strong id="anomalyScore">--</strong>
+                    </div>
                 </div>
 
                 <!-- Transaction Details -->
@@ -774,13 +736,13 @@
 
                 <!-- What influenced this check -->
                 <div class="section-heading">
-                    <span>🧠</span> <span data-i18n="shap_title">What influenced this check</span>
+                    <span>🧠</span> <span data-i18n="explanation_title">What influenced this check</span>
                 </div>
-                <div class="shap-container" id="shapContainer">
-                    <div style="font-size:11px; color:var(--text-muted); margin-bottom:8px;" data-i18n="shap_sub">
-                        A few things that helped SafeSend make this check:
+                <div class="explanation-signals" id="explanationSignals">
+                    <div style="font-size:11px; color:var(--text-muted); margin-bottom:8px;" data-i18n="explanation_sub">
+                        Model signals and behavioral risk factors:
                     </div>
-                    <div id="shapBars"></div>
+                    <div id="riskFactors"></div>
                 </div>
 
                 <!-- Recommendation -->
@@ -850,8 +812,10 @@
                 lbl_recipient: "Recipient",
                 lbl_amount: "Amount",
                 why_flagged: "Why this transfer needs a closer look",
-                shap_title: "What influenced this check",
-                shap_sub: "A few things that helped SafeSend make this check:",
+                explanation_title: "What influenced this check",
+                explanation_sub: "Model signals and behavioral risk factors:",
+                fraud_probability_label: "Fraud probability",
+                anomaly_score_label: "Anomaly score",
                 rec_title: "🛡️ A safer next step",
                 btn_cancel: "❌ Cancel this transfer",
                 btn_override: "🛡️ I know this recipient — send anyway",
@@ -874,8 +838,10 @@
                 lbl_recipient: "প্রাপক",
                 lbl_amount: "টাকার পরিমাণ",
                 why_flagged: "লেনদেনটি আরেকবার যাচাই করা হচ্ছে কেন",
-                shap_title: "এই যাচাইয়ে কী প্রভাব ফেলেছে",
-                shap_sub: "যে বিষয়গুলো দেখে সেফসেন্ড এই যাচাই করেছে:",
+                explanation_title: "এই যাচাইয়ে কী প্রভাব ফেলেছে",
+                explanation_sub: "মডেল সংকেত ও আচরণভিত্তিক ঝুঁকির কারণ:",
+                fraud_probability_label: "প্রতারণার সম্ভাবনা",
+                anomaly_score_label: "অস্বাভাবিকতার স্কোর",
                 rec_title: "🛡️ নিরাপদ পরবর্তী পদক্ষেপ",
                 btn_cancel: "❌ লেনদেনটি বাতিল করুন",
                 btn_override: "🛡️ প্রাপককে চিনি — তবুও পাঠান",
@@ -891,6 +857,7 @@
 
         let currentLang = localStorage.getItem("safesend_lang") || "en";
         const rawResult = sessionStorage.getItem("safesend_result");
+        const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
 
         if (!rawResult) {
             window.location.href = "/";
@@ -912,7 +879,7 @@
 
             renderReasons();
             renderRecommendation();
-            renderShap();
+            renderRiskFactors();
         }
 
         function toggleLanguage() {
@@ -921,6 +888,10 @@
 
         // Populate details
         document.getElementById("riskScore").innerText = data.risk_score + "%";
+        document.getElementById("fraudProbability").innerText =
+            (Number(data.fraud_probability || 0) * 100).toFixed(1) + "%";
+        document.getElementById("anomalyScore").innerText =
+            Number(data.anomaly_score || 0).toFixed(1) + "/100";
         document.getElementById("riskScore").className = "risk-score " + data.risk_level;
         document.getElementById("gaugeCard").className = "risk-gauge-card " + data.risk_level;
 
@@ -964,37 +935,22 @@
             }
         }
 
-        function renderShap() {
-            const container = document.getElementById("shapBars");
+        function renderRiskFactors() {
+            const container = document.getElementById("riskFactors");
             container.innerHTML = "";
-            if (!data.ai_explanation || data.ai_explanation.length === 0) {
-                container.innerHTML = "<div style='font-size:12px; color:#64748b;'>Attribution data unavailable.</div>";
+            const factors = data.risk_factors || data.reasons || [];
+            if (factors.length === 0) {
+                container.innerText = currentLang === "bn"
+                    ? "ঝুঁকির কোনো কারণ পাওয়া যায়নি।"
+                    : "No specific risk factors were identified.";
                 return;
             }
 
-            // Find max absolute contribution for scaling
-            const maxContrib = Math.max(...data.ai_explanation.map(x => Math.abs(x.contribution)), 0.05);
-
-            data.ai_explanation.forEach(feat => {
-                const isPos = feat.contribution > 0;
-                const widthPercent = Math.min(100, Math.round((Math.abs(feat.contribution) / maxContrib) * 100));
-                const label = (currentLang === "bn" && feat.feature_bn) ? feat.feature_bn : feat.feature;
-                const effectText = (currentLang === "bn" && feat.effect_bn) ? feat.effect_bn : feat.effect;
-
-                const row = document.createElement("div");
-                row.className = "shap-row";
-                row.innerHTML = `
-                    <div class="shap-labels">
-                        <span>${label}</span>
-                        <span style="color: ${isPos ? 'var(--upay-red)' : 'var(--upay-green)'};">
-                            ${isPos ? '+' : ''}${feat.contribution.toFixed(3)} (${effectText})
-                        </span>
-                    </div>
-                    <div class="shap-bar-bg">
-                        <div class="shap-bar-fill ${isPos ? 'pos' : 'neg'}" style="width: ${widthPercent}%;"></div>
-                    </div>
-                `;
-                container.appendChild(row);
+            factors.forEach(factor => {
+                const item = document.createElement("div");
+                item.className = "reason-chip";
+                item.innerText = "• " + factor;
+                container.appendChild(item);
             });
         }
 
@@ -1011,11 +967,15 @@
             try {
                 const response = await fetch("/api/risk/confirm/", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": csrfToken
+                    },
                     body: JSON.stringify({
                         user_id: data.user_id || "U0001",
                         recipient_id: data.recipient_id,
                         amount: data.amount,
+                        hour: data.features_analyzed.hour,
                         risk_score: data.risk_score,
                         risk_level: data.risk_level,
                         recipient_new: data.features_analyzed ? data.features_analyzed.recipient_new : true,

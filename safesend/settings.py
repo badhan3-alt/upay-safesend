@@ -10,9 +10,12 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os
+import secrets
+import sys
 from pathlib import Path
 
-import transactions
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -22,24 +25,29 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-yx*is*ceozg540a$0c_1*#6%kp3r8ev^p23ua(9j_wrvp5&w7d'
-
-# SECURITY WARNING: don't run with debug turned on in production!
-import os
-
 DEBUG = os.environ.get("DEBUG", "False") == "True"
+SECRET_KEY = os.environ.get("SECRET_KEY")
+if not SECRET_KEY:
+    if DEBUG or "test" in sys.argv:
+        SECRET_KEY = secrets.token_urlsafe(50)
+    else:
+        raise ImproperlyConfigured(
+            "Set SECRET_KEY in the environment before starting SafeSend."
+        )
 
-ALLOWED_HOSTS = [
-    "localhost",
-    "127.0.0.1",
-    "upay-safesend.onrender.com",
-    ".onrender.com",
-]
+ALLOWED_HOSTS = os.environ.get(
+    "ALLOWED_HOSTS",
+    "localhost,127.0.0.1,upay-safesend.onrender.com,.onrender.com",
+).split(",")
 
 CSRF_TRUSTED_ORIGINS = [
     "https://upay-safesend.onrender.com",
     "https://*.onrender.com",
 ]
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+LOGIN_URL = "/analyst/login/"
 
 # Application definition
 
@@ -84,6 +92,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'django.template.context_processors.csrf',
             ],
         },
     },

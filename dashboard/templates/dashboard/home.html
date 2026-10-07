@@ -285,34 +285,6 @@
             border: 1px solid #cbd5e1;
         }
 
-        /* SHAP Section */
-        .shap-bar {
-            margin-bottom: 8px;
-        }
-
-        .shap-meta {
-            display: flex;
-            justify-content: space-between;
-            font-size: 12px;
-            font-weight: 600;
-            margin-bottom: 3px;
-        }
-
-        .shap-track {
-            height: 6px;
-            background: #e2e8f0;
-            border-radius: 3px;
-            overflow: hidden;
-        }
-
-        .shap-fill {
-            height: 100%;
-            border-radius: 3px;
-        }
-
-        .shap-fill.pos { background: var(--upay-red); }
-        .shap-fill.neg { background: var(--upay-green); }
-
         /* Investigation Box */
         .qa-box {
             background: #f8fafc;
@@ -415,14 +387,6 @@
                 flex-wrap: wrap;
             }
 
-            .shap-meta {
-                gap: 10px;
-            }
-
-            .shap-meta span {
-                min-width: 0;
-                overflow-wrap: anywhere;
-            }
         }
 
         @media (max-width: 360px) {
@@ -617,10 +581,6 @@
             font-size: 15px;
         }
 
-        #shapOutput {
-            font-size: 14px;
-        }
-
         .risk-display-header,
         .risk-display-header.HIGH,
         .risk-display-header.MEDIUM,
@@ -683,6 +643,7 @@
                 </div>
 
                 <form id="simForm">
+                    {% csrf_token %}
                     <div class="form-row">
                         <div class="form-group">
                             <label for="amount" data-i18n="lbl_amount">Amount (৳)</label>
@@ -709,6 +670,41 @@
                         <label for="acc_age" data-i18n="lbl_acc_age">How long the account has been open (days)</label>
                         <input type="number" id="acc_age" min="1" required>
                     </div>
+
+                    <details class="form-group">
+                        <summary data-i18n="behavior_history_title">Recent behavioral history</summary>
+                        <p data-i18n="behavior_history_help">Adjust these example values to explore how recent activity affects the assessment.</p>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="tx_10m" data-i18n="lbl_tx_10m">Transfers in the past 10 minutes</label>
+                                <input type="number" id="tx_10m" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="same_receiver_5m" data-i18n="lbl_same_receiver_5m">Transfers to this recipient in 5 minutes</label>
+                                <input type="number" id="same_receiver_5m" min="0" value="0">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="same_receiver_10m" data-i18n="lbl_same_receiver_10m">Transfers to this recipient in 10 minutes</label>
+                                <input type="number" id="same_receiver_10m" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="similar_amount_10m" data-i18n="lbl_similar_amount_10m">Similar-amount transfers to this recipient in 10 minutes</label>
+                                <input type="number" id="similar_amount_10m" min="0" value="0">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="time_since_last" data-i18n="lbl_time_since_last">Minutes since the last transfer</label>
+                                <input type="number" id="time_since_last" min="0" value="1440">
+                            </div>
+                            <div class="form-group">
+                                <label for="recipient_frequency" data-i18n="lbl_recipient_frequency">Previous transfers to this recipient</label>
+                                <input type="number" id="recipient_frequency" min="0" value="0">
+                            </div>
+                        </div>
+                    </details>
 
                     <div class="checkbox-group">
                         <label class="checkbox-label">
@@ -743,8 +739,8 @@
                     <div class="level-tag LOW" id="levelTag" data-i18n="result_waiting">Waiting for details</div>
                     
                     <div class="model-badges">
-                        <div class="model-badge"><span data-i18n="model_estimate">Risk estimate</span>: <strong id="xgbVal">--</strong></div>
-                        <div class="model-badge"><span data-i18n="activity_check">Activity check</span>: <strong id="ifVal">--</strong></div>
+                        <div class="model-badge"><span data-i18n="model_estimate">Fraud probability</span>: <strong id="xgbVal">--</strong></div>
+                        <div class="model-badge"><span data-i18n="activity_check">Anomaly score</span>: <strong id="ifVal">--</strong></div>
                     </div>
                 </div>
 
@@ -764,11 +760,10 @@
                     </div>
                 </div>
 
-                <!-- SHAP Explainability -->
                 <div class="card-title" style="font-size:15px; margin-bottom:10px;">
-                    <span>🧠</span> <span data-i18n="shap_heading">What influenced this result?</span>
+                    <span>🧠</span> <span data-i18n="risk_factors_heading">Why this result?</span>
                 </div>
-                <div id="shapOutput"></div>
+                <div id="riskFactorsOutput"></div>
             </div>
         </div>
     </div>
@@ -794,6 +789,14 @@
                 lbl_hour: "Time of transfer (0–23)",
                 lbl_tx_1h: "Transfers in the past hour",
                 lbl_acc_age: "How long the account has been open (days)",
+                behavior_history_title: "Recent behavioral history",
+                behavior_history_help: "Adjust these example values to explore how recent activity affects the assessment.",
+                lbl_tx_10m: "Transfers in the past 10 minutes",
+                lbl_same_receiver_5m: "Transfers to this recipient in 5 minutes",
+                lbl_same_receiver_10m: "Transfers to this recipient in 10 minutes",
+                lbl_similar_amount_10m: "Similar-amount transfers to this recipient in 10 minutes",
+                lbl_time_since_last: "Minutes since the last transfer",
+                lbl_recipient_frequency: "Previous transfers to this recipient",
                 chk_new_rec: "This is a new recipient",
                 chk_new_dev: "This is a new or unrecognized device",
                 chk_new_loc: "This is an unusual location",
@@ -808,7 +811,7 @@
                 q1_title: "What happened",
                 q2_title: "What may need attention?",
                 q3_title: "What could you do next?",
-                shap_heading: "What influenced this result?"
+                risk_factors_heading: "Why this result?"
             },
             bn: {
                 nav_wallet: "ওয়ালেট",
@@ -829,6 +832,14 @@
                 lbl_hour: "লেনদেনের সময় (০–২৩)",
                 lbl_tx_1h: "গত এক ঘণ্টায় লেনদেন",
                 lbl_acc_age: "অ্যাকাউন্ট খোলার পর কেটেছে (দিন)",
+                behavior_history_title: "সাম্প্রতিক লেনদেনের ধরন",
+                behavior_history_help: "সাম্প্রতিক লেনদেনের তথ্য বদলে দেখুন, কীভাবে তা ঝুঁকি যাচাইয়ে প্রভাব ফেলে।",
+                lbl_tx_10m: "গত ১০ মিনিটে লেনদেন",
+                lbl_same_receiver_5m: "৫ মিনিটে এই প্রাপকের কাছে লেনদেন",
+                lbl_same_receiver_10m: "১০ মিনিটে এই প্রাপকের কাছে লেনদেন",
+                lbl_similar_amount_10m: "১০ মিনিটে এই প্রাপকের কাছে কাছাকাছি পরিমাণের লেনদেন",
+                lbl_time_since_last: "শেষ লেনদেনের পর মিনিট",
+                lbl_recipient_frequency: "এই প্রাপকের কাছে আগের লেনদেন",
                 chk_new_rec: "এই প্রাপক নতুন",
                 chk_new_dev: "ডিভাইসটি নতুন বা অপরিচিত",
                 chk_new_loc: "অবস্থানটি অস্বাভাবিক",
@@ -843,7 +854,7 @@
                 q1_title: "কী ঘটেছে",
                 q2_title: "কোন বিষয়টি খেয়াল করবেন?",
                 q3_title: "এরপর কী করতে পারেন?",
-                shap_heading: "ফলাফলে কী প্রভাব ফেলেছে?"
+                risk_factors_heading: "এই ফলাফলের কারণ কী?"
             }
         };
 
@@ -872,6 +883,12 @@
                 document.getElementById("avg_amount").value = 2500;
                 document.getElementById("hour").value = 14;
                 document.getElementById("tx_1h").value = 1;
+                document.getElementById("tx_10m").value = 0;
+                document.getElementById("same_receiver_5m").value = 0;
+                document.getElementById("same_receiver_10m").value = 0;
+                document.getElementById("similar_amount_10m").value = 0;
+                document.getElementById("time_since_last").value = 1440;
+                document.getElementById("recipient_frequency").value = 8;
                 document.getElementById("acc_age").value = 240;
                 document.getElementById("recipient_new").checked = false;
                 document.getElementById("device_changed").checked = false;
@@ -881,6 +898,12 @@
                 document.getElementById("avg_amount").value = 2500;
                 document.getElementById("hour").value = 3;
                 document.getElementById("tx_1h").value = 6;
+                document.getElementById("tx_10m").value = 4;
+                document.getElementById("same_receiver_5m").value = 2;
+                document.getElementById("same_receiver_10m").value = 3;
+                document.getElementById("similar_amount_10m").value = 2;
+                document.getElementById("time_since_last").value = 2;
+                document.getElementById("recipient_frequency").value = 0;
                 document.getElementById("acc_age").value = 180;
                 document.getElementById("recipient_new").checked = true;
                 document.getElementById("device_changed").checked = true;
@@ -890,6 +913,12 @@
                 document.getElementById("avg_amount").value = 2200;
                 document.getElementById("hour").value = 21;
                 document.getElementById("tx_1h").value = 7;
+                document.getElementById("tx_10m").value = 5;
+                document.getElementById("same_receiver_5m").value = 1;
+                document.getElementById("same_receiver_10m").value = 2;
+                document.getElementById("similar_amount_10m").value = 1;
+                document.getElementById("time_since_last").value = 3;
+                document.getElementById("recipient_frequency").value = 1;
                 document.getElementById("acc_age").value = 120;
                 document.getElementById("recipient_new").checked = true;
                 document.getElementById("device_changed").checked = false;
@@ -904,14 +933,23 @@
             const hour = parseInt(document.getElementById("hour").value);
             const tx_1h = parseInt(document.getElementById("tx_1h").value);
             const acc_age = parseInt(document.getElementById("acc_age").value);
+            const total_transactions_10m = parseInt(document.getElementById("tx_10m").value);
+            const same_receiver_count_5m = parseInt(document.getElementById("same_receiver_5m").value);
+            const same_receiver_count_10m = parseInt(document.getElementById("same_receiver_10m").value);
+            const similar_amount_count_10m = parseInt(document.getElementById("similar_amount_10m").value);
+            const time_since_last_transaction = parseFloat(document.getElementById("time_since_last").value);
+            const recipient_frequency = parseInt(document.getElementById("recipient_frequency").value);
 
-            if (![amount, avg_amount, hour, tx_1h, acc_age].every(Number.isFinite)) {
+            if (![amount, avg_amount, hour, tx_1h, acc_age, total_transactions_10m,
+                same_receiver_count_5m, same_receiver_count_10m, similar_amount_count_10m,
+                time_since_last_transaction, recipient_frequency].every(Number.isFinite)) {
                 return;
             }
 
             const recipient_new = document.getElementById("recipient_new").checked;
             const device_changed = document.getElementById("device_changed").checked;
             const location_changed = document.getElementById("location_changed").checked;
+            const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
 
             const payload = {
                 amount: amount,
@@ -919,6 +957,12 @@
                 hour: hour,
                 transactions_last_1h: tx_1h,
                 account_age_days: acc_age,
+                total_transactions_10m: total_transactions_10m,
+                same_receiver_count_5m: same_receiver_count_5m,
+                same_receiver_count_10m: same_receiver_count_10m,
+                similar_amount_count_10m: similar_amount_count_10m,
+                time_since_last_transaction: time_since_last_transaction,
+                recipient_frequency: recipient_frequency,
                 recipient_new: recipient_new,
                 device_changed: device_changed,
                 location_changed: location_changed
@@ -927,7 +971,10 @@
             try {
                 const res = await fetch("/api/risk/predict/", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": csrfToken
+                    },
                     body: JSON.stringify(payload)
                 });
                 const result = await res.json();
@@ -946,9 +993,11 @@
                 tag.className = "level-tag " + result.risk_level;
 
                 document.getElementById("xgbVal").innerText = result.xgboost_score + "%";
-                document.getElementById("ifVal").innerText = currentLang === "bn"
-                    ? (result.behavioral_anomaly ? "🚨 অস্বাভাবিক" : "স্বাভাবিক")
-                    : (result.behavioral_anomaly ? "Needs a look" : "Looks usual");
+                const anomalyStatus = result.behavioral_anomaly
+                    ? (currentLang === "bn" ? "ঝুঁকির সংকেত" : "flagged")
+                    : (currentLang === "bn" ? "সীমার নিচে" : "below threshold");
+                document.getElementById("ifVal").innerText =
+                    result.anomaly_score + "% (" + anomalyStatus + ")";
 
                 // Update 3 Questions
                 const investigation = currentLang === "bn" && result.investigation_bn
@@ -958,31 +1007,13 @@
                 document.getElementById("dispWhyRisky").innerText = investigation.why_risky;
                 document.getElementById("dispWhatNext").innerText = investigation.what_upay_should_do;
 
-                // Render SHAP
-                const shapContainer = document.getElementById("shapOutput");
-                shapContainer.innerHTML = "";
-                const maxC = Math.max(...result.ai_explanation.map(x => Math.abs(x.contribution)), 0.05);
-
-                result.ai_explanation.forEach(feat => {
-                    const isPos = feat.contribution > 0;
-                    const w = Math.min(100, Math.round((Math.abs(feat.contribution) / maxC) * 100));
-                    const label = (currentLang === 'bn' && feat.feature_bn) ? feat.feature_bn : feat.feature;
-                    const effect = (currentLang === 'bn' && feat.effect_bn) ? feat.effect_bn : feat.effect;
-
-                    const row = document.createElement("div");
-                    row.className = "shap-bar";
-                    row.innerHTML = `
-                        <div class="shap-meta">
-                            <span>${label}</span>
-                            <span style="color:${isPos ? 'var(--upay-red)' : 'var(--upay-green)'};">
-                                ${isPos ? '+' : ''}${feat.contribution.toFixed(3)} (${effect})
-                            </span>
-                        </div>
-                        <div class="shap-track">
-                            <div class="shap-fill ${isPos ? 'pos' : 'neg'}" style="width:${w}%;"></div>
-                        </div>
-                    `;
-                    shapContainer.appendChild(row);
+                const factorsContainer = document.getElementById("riskFactorsOutput");
+                factorsContainer.replaceChildren();
+                (result.risk_factors || []).forEach(factor => {
+                    const item = document.createElement("div");
+                    item.className = "qa-box";
+                    item.innerText = "• " + factor;
+                    factorsContainer.appendChild(item);
                 });
             } catch (err) {
                 console.error(err);
