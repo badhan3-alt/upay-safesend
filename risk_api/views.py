@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import Decimal
 from pathlib import Path
 import uuid
 
@@ -77,6 +78,58 @@ FEATURE_NAMES_BN = {
 
 
 # ============================================================
+# BEHAVIORAL VELOCITY / REPEATED-TRANSACTION DETECTION
+# ============================================================
+
+def detect_repeated_transactions(
+    user_id,
+    recipient_id,
+    amount,
+    window_minutes=10,
+    similarity_tolerance=0.05,
+):
+    """
+    Detect repeated or very similar transfers from the same user
+    to the same recipient within a short time window.
+
+    The current transaction is NOT yet stored, so a count of 2
+    matching past transactions means the current attempt would be
+    the 3rd similar transfer in the window.
+    """
+    now = timezone.now()
+    window_start = now - timedelta(minutes=window_minutes)
+
+    amount_decimal = Decimal(str(amount))
+    tolerance = Decimal(str(similarity_tolerance))
+    lower_bound = amount_decimal * (Decimal("1") - tolerance)
+    upper_bound = amount_decimal * (Decimal("1") + tolerance)
+
+    recent_same_recipient = Transaction.objects.filter(
+        user_id=user_id,
+        recipient_id=recipient_id,
+        created_at__gte=window_start,
+    )
+
+    same_recipient_count = recent_same_recipient.count()
+
+    similar_amount_count = recent_same_recipient.filter(
+        amount__gte=lower_bound,
+        amount__lte=upper_bound,
+    ).count()
+
+    # Trigger on the third similar transfer attempt within the window.
+    repeated_pattern_detected = similar_amount_count >= 2
+
+    return {
+        "window_minutes": window_minutes,
+        "same_recipient_count": same_recipient_count,
+        "similar_amount_count": similar_amount_count,
+        "similarity_tolerance_percent": round(similarity_tolerance * 100, 1),
+        "repeated_pattern_detected": repeated_pattern_detected,
+    }
+
+
+# ============================================================
 # CORE RISK ENGINE (Ensemble: XGBoost + Isolation Forest + Lightweight Explainability)
 # ============================================================
 
@@ -97,6 +150,14 @@ def evaluate_transaction_risk(feature_data: dict) -> dict:
     hour = int(feature_data.get("hour", 14))
     tx_last_1h = int(feature_data.get("transactions_last_1h", 1))
     account_age = int(feature_data.get("account_age_days", 180))
+
+    # Behavioral velocity signals are kept separate from the trained model
+    # so the existing XGBoost / Isolation Forest feature schema is not broken.
+    similar_amount_count_10m = int(feature_data.get("similar_amount_count_10m", 0))
+    same_recipient_count_10m = int(feature_data.get("same_recipient_count_10m", 0))
+    repeated_pattern_detected = bool(
+        feature_data.get("repeated_pattern_detected", False)
+    )
 
     transaction_df = pd.DataFrame(
         [
@@ -143,7 +204,21 @@ def evaluate_transaction_risk(feature_data: dict) -> dict:
 
     # 3. Blended Ensemble Risk Score (75% XGBoost + 25% Isolation Forest)
     blended_score = (0.75 * xgb_score) + (0.25 * anomaly_score)
-    risk_score = round(max(0.0, min(100.0, blended_score)), 1)
+
+    # Explicit behavioral velocity signal requested during Phase 1 review.
+    # This is intentionally kept separate from the trained ML score so the
+    # prototype remains transparent about what comes from ML vs. safety logic.
+    behavioral_risk_adjustment = 0.0
+    if repeated_pattern_detected:
+        if similar_amount_count_10m >= 4:
+            behavioral_risk_adjustment = 25.0
+        elif similar_amount_count_10m >= 2:
+            behavioral_risk_adjustment = 15.0
+
+    risk_score = round(
+        max(0.0, min(100.0, blended_score + behavioral_risk_adjustment)),
+        1,
+    )
 
     # 4. Risk Level Calibration
     if risk_score >= 70.0:
@@ -186,6 +261,17 @@ def evaluate_transaction_risk(feature_data: dict) -> dict:
         )
         reasons_bn.append(
             f"গত এক ঘণ্টায় {tx_last_1h}টি লেনদেন হয়েছে"
+        )
+
+    if repeated_pattern_detected:
+        total_with_current = similar_amount_count_10m + 1
+        reasons_en.append(
+            f"Repeated transaction pattern: {total_with_current} similar transfers "
+            f"to this recipient within 10 minutes"
+        )
+        reasons_bn.append(
+            f"পুনরাবৃত্ত লেনদেন শনাক্ত হয়েছে: ১০ মিনিটের মধ্যে এই প্রাপকের কাছে "
+            f"{total_with_current}টি কাছাকাছি পরিমাণের লেনদেন"
         )
 
     if hour <= 5 or hour >= 23:
@@ -287,6 +373,8 @@ def evaluate_transaction_risk(feature_data: dict) -> dict:
     return {
         "risk_score": risk_score,
         "risk_level": risk_level,
+        "base_ml_risk_score": round(blended_score, 1),
+        "behavioral_risk_adjustment": round(behavioral_risk_adjustment, 1),
         "xgboost_score": round(xgb_score, 2),
         "fraud_probability": round(fraud_prob, 4),
         "behavioral_anomaly": is_anomaly,
@@ -305,6 +393,15 @@ def evaluate_transaction_risk(feature_data: dict) -> dict:
             "average_transaction_amount": round(avg_amount, 2),
             "amount_ratio": amount_ratio,
             "account_age_days": account_age,
+            "same_recipient_transactions_10m": same_recipient_count_10m,
+            "similar_amount_transactions_10m": similar_amount_count_10m,
+            "repeated_pattern_detected": repeated_pattern_detected,
+        },
+        "behavioral_analysis": {
+            "window_minutes": 10,
+            "same_recipient_transactions_10m": same_recipient_count_10m,
+            "similar_amount_transactions_10m": similar_amount_count_10m,
+            "repeated_pattern_detected": repeated_pattern_detected,
         },
         "investigation": {
             "what_happened": what_happened,
@@ -387,6 +484,16 @@ class SendMoneyRiskView(generics.GenericAPIView):
         device_changed = data.get("device_changed", False)
         location_changed = data.get("location_changed", False)
 
+        # Step 1 improvement: detect repeated / similar-value transfers
+        # before the current transaction is confirmed and saved.
+        behavior = detect_repeated_transactions(
+            user_id=user_id,
+            recipient_id=recipient_id,
+            amount=amount,
+            window_minutes=10,
+            similarity_tolerance=0.05,
+        )
+
         feature_data = {
             "user_id": user_id,
             "recipient_id": recipient_id,
@@ -398,6 +505,9 @@ class SendMoneyRiskView(generics.GenericAPIView):
             "transactions_last_1h": tx_last_1h,
             "average_transaction_amount": avg_amount,
             "account_age_days": account_age_days,
+            "same_recipient_count_10m": behavior["same_recipient_count"],
+            "similar_amount_count_10m": behavior["similar_amount_count"],
+            "repeated_pattern_detected": behavior["repeated_pattern_detected"],
         }
 
         result = evaluate_transaction_risk(feature_data)
