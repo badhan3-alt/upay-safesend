@@ -691,6 +691,10 @@
             <a href="/" class="nav-link">📱 Mobile Wallet</a>
             <a href="/simulator/" class="nav-link">🔬 AI Simulator</a>
             <a href="/analyst/" class="nav-link active">📊 Analyst Portal</a>
+            <form method="post" action="{% url 'analyst-logout' %}">
+                {% csrf_token %}
+                <button class="filter-btn" type="submit">Sign out</button>
+            </form>
         </div>
     </nav>
 
@@ -747,12 +751,16 @@
                 <thead>
                     <tr>
                         <th>Txn ID</th>
-                        <th>User ID</th>
+                        <th>Sender</th>
                         <th>Recipient</th>
                         <th>Amount</th>
-                        <th>Risk estimate</th>
-                        <th>Review</th>
-                        <th>What stood out</th>
+                        <th>Risk score / level</th>
+                        <th>Fraud probability</th>
+                        <th>Anomaly status</th>
+                        <th>Behavioral flags</th>
+                        <th>Main risk factors</th>
+                        <th>Recommended action</th>
+                        <th>Analyst status</th>
                         <th>Details</th>
                     </tr>
                 </thead>
@@ -765,26 +773,55 @@
                         <td><strong>৳{{ t.amount }}</strong></td>
                         <td>
                             <span style="font-weight:800; font-size:14px; color:{% if t.risk_level == 'HIGH' %}var(--upay-red){% elif t.risk_level == 'MEDIUM' %}var(--upay-yellow){% else %}var(--upay-green){% endif %};">
-                                {{ t.risk_score }}%
+                                {{ t.risk_score|floatformat:1 }}/100
                             </span>
-                        </td>
-                        <td>
                             <span class="risk-badge {{ t.risk_level }}">{{ t.risk_level }}</span>
                         </td>
+                        <td>{{ t.fraud_probability|floatformat:1 }}%</td>
+                        <td>{% if t.behavioral_anomaly %}Flagged{% else %}Not flagged{% endif %} ({{ t.anomaly_score|floatformat:1 }})</td>
                         <td style="font-size:12px; color:#64748b;">
                             {% if t.recipient_new %}<span title="New Recipient">👤 New</span>{% endif %}
                             {% if t.device_changed %}<span title="Device Changed">📱 Device</span>{% endif %}
                             {% if t.location_changed %}<span title="Location Changed">📍 Location</span>{% endif %}
+                            {% if t.behavioral_features.repeated_pattern_detected %}<span title="Repeated transaction pattern">🔁 Repeated</span>{% endif %}
+                            {% if t.behavioral_features.total_transactions_10m >= 3 %}<span title="High recent transaction velocity">⚡ Velocity</span>{% endif %}
+                        </td>
+                        <td style="font-size:12px; color:#64748b;">
+                            {% for factor in t.risk_factors|slice:":2" %}<div>{{ factor }}</div>{% empty %}None recorded{% endfor %}
+                        </td>
+                        <td style="font-size:12px;">{{ t.recommendation.en }}</td>
+                        <td>
+                            <form method="post" action="{% url 'analyst-update-status' t.pk %}">
+                                {% csrf_token %}
+                                <select name="analyst_status" aria-label="Analyst status for {{ t.transaction_id }}">
+                                    {% for value, label in analyst_statuses %}
+                                        <option value="{{ value }}" {% if t.analyst_status == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                                <button class="btn-investigate" type="submit">Save</button>
+                            </form>
                         </td>
                         <td>
-                            <button class="btn-investigate" onclick="openInvestigate('{{ t.transaction_id }}', '{{ t.user_id }}', '{{ t.recipient_id }}', {{ t.amount }}, {{ t.risk_score }}, '{{ t.risk_level }}', {{ t.recipient_new|lower }}, {{ t.device_changed|lower }})">
+                            <button class="btn-investigate" type="button" onclick="openInvestigate(this)"
+                                data-txn-id="{{ t.transaction_id }}"
+                                data-user-id="{{ t.user_id }}"
+                                data-recipient-id="{{ t.recipient_id }}"
+                                data-amount="{{ t.amount }}"
+                                data-risk-score="{{ t.risk_score }}"
+                                data-risk-level="{{ t.risk_level }}"
+                                data-fraud-probability="{{ t.fraud_probability }}"
+                                data-anomaly-score="{{ t.anomaly_score }}"
+                                data-anomaly="{{ t.behavioral_anomaly|yesno:'true,false' }}"
+                                data-reasons="{{ t.risk_factors|join:' | ' }}"
+                                data-recommendation="{{ t.recommendation.en }}"
+                                data-status="{{ t.get_analyst_status_display }}">
                                 🔍 View details
                             </button>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="8" style="text-align:center; padding:30px; color:#64748b;">
+                        <td colspan="12" style="text-align:center; padding:30px; color:#64748b;">
                             No transactions found. Run <code>python manage.py seed_data</code> to seed demo transactions.
                         </td>
                     </tr>
@@ -817,6 +854,14 @@
                     </div>
                 </div>
 
+                <div class="inv-qa-block">
+                    <strong>Model outputs</strong>
+                    <div>Fraud probability: <span id="modalFraudProbability">--</span></div>
+                    <div>Anomaly score: <span id="modalAnomalyScore">--</span></div>
+                    <div>Anomaly status: <span id="modalAnomalyStatus">--</span></div>
+                    <div>Analyst status: <span id="modalAnalystStatus">--</span></div>
+                </div>
+
                 <!-- 3 Key Hackathon Questions -->
                 <div class="inv-qa-block">
                     <strong>What happened</strong>
@@ -843,12 +888,6 @@
             </div>
 
             <div class="inv-footer">
-                <button class="filter-btn" onclick="alert('Transfer flagged for a closer review.'); closeInvestigate();">
-                    🚩 Flag for review
-                </button>
-                <button class="filter-btn" style="background:var(--upay-green); color:white; border:none;" onclick="alert('Transfer marked as verified.'); closeInvestigate();">
-                    ✓ Mark as verified
-                </button>
                 <button class="filter-btn" style="background:var(--upay-dark); color:white; border:none;" onclick="closeInvestigate()">
                     Close
                 </button>
@@ -880,38 +919,41 @@
             });
         }
 
-        function openInvestigate(txnId, userId, recipientId, amount, riskScore, riskLevel, isNew, devChanged) {
+        function openInvestigate(button) {
+            const {
+                txnId,
+                userId,
+                recipientId,
+                amount,
+                riskScore,
+                riskLevel,
+                fraudProbability,
+                anomalyScore,
+                anomaly,
+                reasons,
+                recommendation,
+                status
+            } = button.dataset;
             document.getElementById("modalTxnId").innerText = txnId;
             document.getElementById("modalAmount").innerText = "৳" + Number(amount).toLocaleString();
             
             const badge = document.getElementById("modalRiskBadge");
-            badge.innerText = riskScore + "% " + riskLevel;
+            badge.innerText = Number(riskScore).toFixed(1) + "/100 " + riskLevel;
             badge.className = "risk-badge " + riskLevel;
 
             document.getElementById("modalWhatHappened").innerText = 
                 `User ${userId} initiated a digital transfer of ৳${Number(amount).toLocaleString()} to recipient ${recipientId}.`;
-
-            if (riskLevel === "HIGH") {
-                document.getElementById("modalWhyRisky").innerText = 
-                    `High anomaly detected: Transfer amount is significantly above the user's habitual average (৳2,500). ` +
-                    (isNew ? "Recipient has no prior transaction history with this account. " : "") +
-                    (devChanged ? "Transfer was executed from an unfamiliar or recently switched device. " : "") +
-                    "Combined XGBoost and Isolation Forest signals indicate probable account takeover or social engineering scam.";
-
-                document.getElementById("modalWhatNext").innerText = 
-                    "Pre-transaction intervention applied. SafeSend intercepted the flow to warn the user. " +
-                    "If customer overrides, freeze funds for a 15-minute cooling off period or mandate biometric verification.";
-            } else if (riskLevel === "MEDIUM") {
-                document.getElementById("modalWhyRisky").innerText = 
-                    "Moderate deviation detected from typical spending distribution. Volume or timing is slightly elevated.";
-                document.getElementById("modalWhatNext").innerText = 
-                    "Present contextual safety advisory to user with recipient verification confirmation.";
-            } else {
-                document.getElementById("modalWhyRisky").innerText = 
-                    "No abnormal signals detected. Recipient is established and transaction amount conforms to normal daily distribution.";
-                document.getElementById("modalWhatNext").innerText = 
-                    "Instant straight-through processing. No user friction required.";
-            }
+            document.getElementById("modalFraudProbability").innerText =
+                (Number(fraudProbability) * 100).toFixed(1) + "%";
+            document.getElementById("modalAnomalyScore").innerText =
+                Number(anomalyScore).toFixed(1) + "/100";
+            document.getElementById("modalAnomalyStatus").innerText =
+                anomaly === "true" ? "Flagged" : "Not flagged";
+            document.getElementById("modalAnalystStatus").innerText = status;
+            document.getElementById("modalWhyRisky").innerText =
+                reasons || "No specific risk factors were recorded.";
+            document.getElementById("modalWhatNext").innerText =
+                recommendation || "Review the recipient and amount before deciding.";
 
             document.getElementById("invModal").style.display = "flex";
         }

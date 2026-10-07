@@ -1,85 +1,74 @@
+from functools import wraps
+
+from django.contrib.auth.views import redirect_to_login
+from django.core.exceptions import PermissionDenied
 from django.db.models import Sum
-from django.shortcuts import render
-from transactions.models import Transaction
-import traceback
+from django.http import HttpResponseBadRequest
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.views.decorators.http import require_POST
+
+from risk_api.permissions import is_analyst
+from transactions.models import Recipient, Transaction
+
+
+def analyst_required(view):
+    @wraps(view)
+    def wrapped(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect_to_login(
+                request.get_full_path(),
+                reverse("analyst-login"),
+            )
+        if not is_analyst(request.user):
+            raise PermissionDenied("An analyst account is required.")
+        return view(request, *args, **kwargs)
+
+    return wrapped
 
 
 def send_money(request):
-    """
-    Simulated Upay Mobile Wallet client interface.
-    """
-    return render(request, "dashboard/send_money.html")
+    """Simulated Upay Mobile Wallet client interface."""
+    recipients = Recipient.objects.filter(is_active=True).values_list(
+        "recipient_id",
+        flat=True,
+    )
+    return render(
+        request,
+        "dashboard/send_money.html",
+        {"recipients": recipients},
+    )
 
 
 def warning(request):
-    """
-    SafeSend pre-transaction risk warning & explainability interception screen.
-    """
+    """SafeSend pre-transaction risk warning and explanation screen."""
     return render(request, "dashboard/warning.html")
 
 
 def simulator(request):
-    """
-    Interactive AI Risk Engine & Explainability Simulator Lab.
-    """
+    """Interactive AI risk engine and explanation simulator."""
     return render(request, "dashboard/home.html")
 
 
+@analyst_required
 def analyst_dashboard(request):
-    """
-    Fraud Operations & Investigation Copilot for Upay Security Analysts.
-    """
+    total_count = Transaction.objects.count()
+    low_count = Transaction.objects.filter(risk_level="LOW").count()
+    med_count = Transaction.objects.filter(risk_level="MEDIUM").count()
+    high_count = Transaction.objects.filter(risk_level="HIGH").count()
+    total_volume = Transaction.objects.aggregate(total=Sum("amount"))["total"] or 0
+    high_risk_volume = (
+        Transaction.objects.filter(risk_level="HIGH").aggregate(total=Sum("amount"))[
+            "total"
+        ]
+        or 0
+    )
+    transactions = Transaction.objects.order_by("-created_at")[:100]
 
-    try:
-        # ==============================
-        # Dashboard statistics
-        # ==============================
-
-        total_count = Transaction.objects.count()
-
-        low_count = Transaction.objects.filter(
-            risk_level="LOW"
-        ).count()
-
-        med_count = Transaction.objects.filter(
-            risk_level="MEDIUM"
-        ).count()
-
-        high_count = Transaction.objects.filter(
-            risk_level="HIGH"
-        ).count()
-
-        total_volume = (
-            Transaction.objects.aggregate(
-                total=Sum("amount")
-            )["total"]
-            or 0
-        )
-
-        high_risk_volume = (
-            Transaction.objects.filter(
-                risk_level="HIGH"
-            ).aggregate(
-                total=Sum("amount")
-            )["total"]
-            or 0
-        )
-
-        # ==============================
-        # Recent transactions
-        # ==============================
-
-        transactions = (
-            Transaction.objects
-            .all()
-            .order_by("-created_at")[:100]
-        )
-
-        # ==============================
-        # Template context
-        # ==============================
-
-        context = {
+    return render(
+        request,
+        "dashboard/analyst.html",
+        {
             "total_count": total_count,
             "low_count": low_count,
             "med_count": med_count,
@@ -87,53 +76,20 @@ def analyst_dashboard(request):
             "total_volume": float(total_volume),
             "high_risk_volume": float(high_risk_volume),
             "transactions": transactions,
-            "dashboard_error": None,
-        }
+            "analyst_statuses": Transaction.ANALYST_STATUSES,
+        },
+    )
 
-    except Exception as e:
-        # Print full error in Render logs
-        print("=" * 60)
-        print("ANALYST DASHBOARD ERROR")
-        print(str(e))
-        traceback.print_exc()
-        print("=" * 60)
 
-        # Keep the dashboard page alive even if database access fails
-        context = {
-            "total_count": 0,
-            "low_count": 0,
-            "med_count": 0,
-            "high_count": 0,
-            "total_volume": 0.0,
-            "high_risk_volume": 0.0,
-            "transactions": [],
-            "dashboard_error": str(e),
-        }
+@analyst_required
+@require_POST
+def update_analyst_status(request, pk):
+    transaction = get_object_or_404(Transaction, pk=pk)
+    requested_status = request.POST.get("analyst_status", "")
+    valid_statuses = {value for value, _label in Transaction.ANALYST_STATUSES}
+    if requested_status not in valid_statuses:
+        return HttpResponseBadRequest("Invalid analyst status.")
 
-    try:
-        return render(
-            request,
-            "dashboard/analyst.html",
-            context,
-        )
-
-    except Exception as e:
-        # This catches template-related problems separately
-        print("=" * 60)
-        print("ANALYST TEMPLATE ERROR")
-        print(str(e))
-        traceback.print_exc()
-        print("=" * 60)
-
-        # Temporary readable fallback instead of generic Server Error 500
-        from django.http import HttpResponse
-
-        return HttpResponse(
-            f"""
-            <h1>SafeSend Analyst Dashboard</h1>
-            <h2>Dashboard could not be rendered.</h2>
-            <p><strong>Error:</strong> {str(e)}</p>
-            <p>Check the Render logs for the full traceback.</p>
-            """,
-            status=500,
-        )
+    transaction.analyst_status = requested_status
+    transaction.save(update_fields=["analyst_status"])
+    return redirect("analyst-dashboard")
